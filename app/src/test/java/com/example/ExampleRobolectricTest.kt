@@ -121,4 +121,36 @@ class ExampleRobolectricTest {
     viewModel.resetLayoutToDefault()
     assertEquals(7, viewModel.editingLayout.value.elements.size)
   }
+
+  @Test
+  fun `test real time rssi and latency monitor dashboard`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
+    val viewModel = com.example.viewmodel.GamepadViewModel(context)
+
+    // Verify initial RSSI and Latency histories are populated
+    val rssiHist = viewModel.rssiHistory.value
+    org.junit.Assert.assertTrue("RSSI history should be initialized", rssiHist.isNotEmpty())
+    org.junit.Assert.assertTrue("RSSI samples should be within reasonable BLE range", rssiHist.all { it in -90..-20 })
+
+    val latencyHist = viewModel.latencyHistory.value
+    org.junit.Assert.assertTrue("Latency history should be initialized", latencyHist.isNotEmpty())
+    org.junit.Assert.assertTrue("Latency samples should be within gaming range", latencyHist.all { it in 1f..30f })
+
+    // Verify gamepad selection for monitoring
+    assertEquals("pad_xbox_1", viewModel.selectedMonitorGamepadId.value)
+    viewModel.selectMonitorGamepad("pad_dualsense_1")
+    assertEquals("pad_dualsense_1", viewModel.selectedMonitorGamepadId.value)
+
+    // Verify Ping Burst Stress Test execution
+    org.junit.Assert.assertFalse(viewModel.isPingBurstRunning.value)
+    viewModel.runPingBurstTest(stepDelayMs = 0L)
+    org.robolectric.shadows.ShadowLooper.idleMainLooper()
+
+    val burstResult = viewModel.pingBurstResult.value
+    org.junit.Assert.assertNotNull("Ping burst result should be produced", burstResult)
+    assertEquals(100, burstResult?.packetCount)
+    assertEquals(0.0f, burstResult?.packetLossPct)
+    org.junit.Assert.assertTrue("Avg latency should be reasonable", (burstResult?.avgLatencyMs ?: 0f) > 0f)
+    assertEquals("EXCELLENT", burstResult?.qualityGrade)
+  }
 }

@@ -77,7 +77,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.DeviceTarget
+import com.example.data.model.DeviceType
 import com.example.data.model.GamepadScreen
+import com.example.ui.components.RssiLatencyMonitorDashboard
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
@@ -110,6 +112,13 @@ fun DiagnosticsScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     val lastHapticEvent by viewModel.lastHapticEvent.collectAsState()
     val quickSettings by viewModel.quickSettings.collectAsState()
+    val rssiHistory by viewModel.rssiHistory.collectAsState()
+    val latencyHistory by viewModel.latencyHistory.collectAsState()
+    val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    val selectedMonitorGamepadId by viewModel.selectedMonitorGamepadId.collectAsState()
+    val isPingBurstRunning by viewModel.isPingBurstRunning.collectAsState()
+    val pingBurstProgress by viewModel.pingBurstProgress.collectAsState()
+    val pingBurstResult by viewModel.pingBurstResult.collectAsState()
 
     Column(
         modifier = modifier
@@ -138,6 +147,20 @@ fun DiagnosticsScreen(
             TelemetryPageHeader(
                 telemetry = telemetry,
                 roundtripMs = telemetry.roundtripMs
+            )
+
+            // Real-Time Signal Strength (RSSI) & Latency Monitor Dashboard for Paired Gamepads
+            RssiLatencyMonitorDashboard(
+                telemetry = telemetry,
+                rssiHistory = rssiHistory,
+                latencyHistory = latencyHistory,
+                pairedGamepads = discoveredDevices.filter { it.type == DeviceType.GAMEPAD },
+                selectedGamepadId = selectedMonitorGamepadId,
+                isPingBurstRunning = isPingBurstRunning,
+                pingBurstProgress = pingBurstProgress,
+                pingBurstResult = pingBurstResult,
+                onSelectGamepad = { viewModel.selectMonitorGamepad(it) },
+                onRunPingBurstTest = { viewModel.runPingBurstTest() }
             )
 
             // Top Telemetry Grid (4 Core Metric Blocks)

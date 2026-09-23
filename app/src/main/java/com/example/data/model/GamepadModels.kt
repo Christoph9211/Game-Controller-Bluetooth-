@@ -181,3 +181,25 @@ enum class GamepadScreen {
     DEVICE_DISCOVERY,
     DIAGNOSTICS
 }
+
+data class PingBurstResult(
+    val packetCount: Int = 100,
+    val minLatencyMs: Float = 2.4f,
+    val avgLatencyMs: Float = 3.6f,
+    val maxLatencyMs: Float = 4.9f,
+    val packetLossPct: Float = 0.0f,
+    val jitterMs: Float = 0.29f,
+    val qualityGrade: String = "EXCELLENT",
+    val timestamp: String = "Just now"
+)
+
+enum class ConnectionQualityRating(
+    val label: String,
+    val description: String,
+    val minScore: Int
+) {
+    EXCELLENT("EXCELLENT", "Competitive Esports Grade • Ultra Low Jitter", 85),
+    GOOD("GOOD", "Solid Link • Smooth Casual Gameplay", 70),
+    FAIR("FAIR", "Marginal RF Margin • Potential Jitter Spikes", 50),
+    POOR("POOR", "Degraded Signal • Packet Retransmissions", 0)
+}

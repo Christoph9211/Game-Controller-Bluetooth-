@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -115,6 +117,29 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
 
     private val _lastPressedButton = MutableStateFlow<String?>(null)
     val lastPressedButton: StateFlow<String?> = _lastPressedButton.asStateFlow()
+
+    // Real-Time RSSI & Latency Monitor Dashboard States
+    private val _rssiHistory = MutableStateFlow<List<Int>>(
+        listOf(-42, -43, -41, -44, -42, -40, -43, -42, -41, -43, -42, -41, -44, -43, -42)
+    )
+    val rssiHistory: StateFlow<List<Int>> = _rssiHistory.asStateFlow()
+
+    private val _latencyHistory = MutableStateFlow<List<Float>>(
+        listOf(3.6f, 3.8f, 3.4f, 4.1f, 3.7f, 3.5f, 3.9f, 3.6f, 3.4f, 3.8f, 3.7f, 3.9f, 3.5f, 3.8f, 3.6f)
+    )
+    val latencyHistory: StateFlow<List<Float>> = _latencyHistory.asStateFlow()
+
+    private val _selectedMonitorGamepadId = MutableStateFlow("pad_xbox_1")
+    val selectedMonitorGamepadId: StateFlow<String> = _selectedMonitorGamepadId.asStateFlow()
+
+    private val _isPingBurstRunning = MutableStateFlow(false)
+    val isPingBurstRunning: StateFlow<Boolean> = _isPingBurstRunning.asStateFlow()
+
+    private val _pingBurstProgress = MutableStateFlow(0f)
+    val pingBurstProgress: StateFlow<Float> = _pingBurstProgress.asStateFlow()
+
+    private val _pingBurstResult = MutableStateFlow<com.example.data.model.PingBurstResult?>(null)
+    val pingBurstResult: StateFlow<com.example.data.model.PingBurstResult?> = _pingBurstResult.asStateFlow()
 
     init {
         initInitialData()
@@ -266,18 +291,66 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     private fun startTelemetryLoop() {
         viewModelScope.launch {
             while (true) {
-                delay(2000)
+                delay(1200)
                 // Ping jitter simulation
-                val jitter = (3.4f + Random.nextFloat() * 0.8f)
+                val jitter = (3.2f + Random.nextFloat() * 0.9f)
                 val roundedPing = (jitter * 10).toInt() / 10f
+                val rfDrift = Random.nextInt(-2, 3)
+
                 _telemetry.update { old ->
+                    val newDbm = (old.rfDbm + rfDrift).coerceIn(-76, -34)
+                    val integrity = ((100 - (abs(newDbm) - 30) * 1.1f).toInt()).coerceIn(60, 99)
                     old.copy(
                         roundtripMs = roundedPing,
-                        jitterMs = (Random.nextFloat() * 0.4f),
+                        jitterMs = (Random.nextFloat() * 0.35f),
+                        rfDbm = newDbm,
+                        signalIntegrity = integrity,
                         totalPackets = old.totalPackets + Random.nextInt(240, 260)
                     )
                 }
+
+                // Update RSSI and Latency history buffers
+                val curDbm = _telemetry.value.rfDbm
+                _rssiHistory.update { oldList ->
+                    (oldList + curDbm).takeLast(25)
+                }
+                _latencyHistory.update { oldList ->
+                    (oldList + roundedPing).takeLast(25)
+                }
             }
+        }
+    }
+
+    fun selectMonitorGamepad(id: String) {
+        _selectedMonitorGamepadId.value = id
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
+
+    fun runPingBurstTest(stepDelayMs: Long = 60L) {
+        if (_isPingBurstRunning.value) return
+        viewModelScope.launch {
+            _isPingBurstRunning.value = true
+            _pingBurstProgress.value = 0f
+            for (step in 1..20) {
+                if (stepDelayMs > 0) delay(stepDelayMs)
+                _pingBurstProgress.value = step / 20f
+            }
+            val minLat = 2.1f + Random.nextFloat() * 0.4f
+            val avgLat = 3.3f + Random.nextFloat() * 0.4f
+            val maxLat = 4.5f + Random.nextFloat() * 0.6f
+            _pingBurstResult.value = com.example.data.model.PingBurstResult(
+                packetCount = 100,
+                minLatencyMs = (minLat * 10).roundToInt() / 10f,
+                avgLatencyMs = (avgLat * 10).roundToInt() / 10f,
+                maxLatencyMs = (maxLat * 10).roundToInt() / 10f,
+                packetLossPct = 0.0f,
+                jitterMs = 0.26f,
+                qualityGrade = "EXCELLENT",
+                timestamp = "Just now"
+            )
+            _isPingBurstRunning.value = false
+            hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "PingBurstComplete")
+            showToast("Ping burst complete: 100/100 packets delivered (0.00% packet loss)")
         }
     }
 
