@@ -1,0 +1,143 @@
+package com.example.data.model
+
+enum class ControllerElementId(val displayName: String, val category: String) {
+    LT_LB("LT / LB", "Bumpers & Triggers"),
+    LEFT_STICK("Left Stick", "Analog Stick"),
+    DPAD("D-Pad", "Directional Pad"),
+    AUX_BUTTONS("Select / Start", "System"),
+    RT_RB("RT / RB", "Bumpers & Triggers"),
+    RIGHT_STICK("Right Stick", "Analog Stick"),
+    ABXY("ABXY Cluster", "Action Buttons")
+}
+
+enum class StickStylePreset(val label: String) {
+    HALO("Halo"),
+    TARGET("Target"),
+    MINIMAL("Minimal")
+}
+
+data class ElementLayoutConfig(
+    val elementId: ControllerElementId,
+    val xPercent: Float, // 0 to 100
+    val yPercent: Float, // 0 to 100
+    val scale: Float = 1.0f, // 0.8 to 1.4
+    val stylePreset: StickStylePreset = StickStylePreset.HALO
+)
+
+data class ControllerLayoutProfile(
+    val id: String = "default_asymmetric",
+    val name: String = "Asymmetric Offset (Default)",
+    val isCustom: Boolean = false,
+    val elements: Map<ControllerElementId, ElementLayoutConfig> = defaultLayoutElements()
+) {
+    companion object {
+        fun defaultLayoutElements(): Map<ControllerElementId, ElementLayoutConfig> = mapOf(
+            ControllerElementId.LT_LB to ElementLayoutConfig(
+                elementId = ControllerElementId.LT_LB,
+                xPercent = 6f,
+                yPercent = 6f,
+                scale = 1.0f
+            ),
+            ControllerElementId.LEFT_STICK to ElementLayoutConfig(
+                elementId = ControllerElementId.LEFT_STICK,
+                xPercent = 7f,
+                yPercent = 48f,
+                scale = 1.0f,
+                stylePreset = StickStylePreset.HALO
+            ),
+            ControllerElementId.DPAD to ElementLayoutConfig(
+                elementId = ControllerElementId.DPAD,
+                xPercent = 27f,
+                yPercent = 48f,
+                scale = 1.0f
+            ),
+            ControllerElementId.AUX_BUTTONS to ElementLayoutConfig(
+                elementId = ControllerElementId.AUX_BUTTONS,
+                xPercent = 49f,
+                yPercent = 38f,
+                scale = 1.0f
+            ),
+            ControllerElementId.RT_RB to ElementLayoutConfig(
+                elementId = ControllerElementId.RT_RB,
+                xPercent = 85f,
+                yPercent = 6f,
+                scale = 1.0f
+            ),
+            ControllerElementId.RIGHT_STICK to ElementLayoutConfig(
+                elementId = ControllerElementId.RIGHT_STICK,
+                xPercent = 63f,
+                yPercent = 46f,
+                scale = 1.0f,
+                stylePreset = StickStylePreset.HALO
+            ),
+            ControllerElementId.ABXY to ElementLayoutConfig(
+                elementId = ControllerElementId.ABXY,
+                xPercent = 84f,
+                yPercent = 48f,
+                scale = 1.0f
+            )
+        )
+    }
+}
+
+enum class DeviceType {
+    PC,
+    LAPTOP,
+    STEAM_DECK,
+    CONSOLE
+}
+
+data class DeviceTarget(
+    val id: String,
+    val name: String,
+    val subtitle: String,
+    val type: DeviceType,
+    val connectionType: String,
+    val rssiDbm: Int,
+    val isPaired: Boolean,
+    val isConnected: Boolean,
+    val streamRate: String,
+    val lastSeenOrConnected: String = "Just now"
+)
+
+data class TelemetryData(
+    val linkState: String = "HID Connected",
+    val roundtripMs: Float = 3.8f,
+    val samplingHz: Int = 125,
+    val hostName: String = "Custom Rig (RTX 4090)",
+    val hostMac: String = "94:E6:F7:2B:90:1C",
+    val profileName: String = "P1 · Low Latency FPS",
+    val rfDbm: Int = -42,
+    val signalIntegrity: Int = 98,
+    val packetLoss: Float = 0.00f,
+    val minLatency: Float = 2.4f,
+    val maxLatency: Float = 5.1f,
+    val jitterMs: Float = 0.4f,
+    val hallDrift: Float = 0.0f,
+    val ltPressure: Int = 0, // 0..255
+    val rtPressure: Int = 0, // 0..255
+    val thermalC: Float = 29.4f,
+    val txRate: Float = 124.9f,
+    val totalPackets: Long = 243184L
+)
+
+data class QuickActionsSettings(
+    val currentProfile: String = "P1: Low Latency FPS",
+    val hapticsEnabled: Boolean = true,
+    val hapticStrength: Float = 0.85f,
+    val hapticProfile: String = "Crisp Mechanical", // "Crisp Mechanical", "Heavy Dual LRA", "Subtle Micro-Tick"
+    val triggerResistanceHaptic: Boolean = true,
+    val stickPerimeterHaptic: Boolean = true,
+    val gyroAimEnabled: Boolean = false,
+    val turboEnabled: Boolean = false,
+    val deadzonePct: Int = 5,
+    val pollRateHz: Int = 250,
+    val audioHapticSync: Boolean = true
+)
+
+enum class GamepadScreen {
+    CONTROLLER,
+    CUSTOMIZE_LAYOUT,
+    DEVICE_DISCOVERY,
+    DIAGNOSTICS
+}

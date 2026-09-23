@@ -1,0 +1,6 @@
+{
+  "name": "Bluetooth Gamepad",
+  "description": "Low-latency wireless gamepad controller with custom interactive layout editor, quick actions drawer, device discovery, and real-time HID diagnostics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
