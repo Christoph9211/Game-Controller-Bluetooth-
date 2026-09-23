@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.model.DeviceTarget
 import com.example.data.model.DeviceType
 import com.example.data.model.GamepadScreen
+import com.example.ui.components.DiscoveredBluetoothDevicesView
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
@@ -93,6 +94,9 @@ fun DeviceDiscoveryScreen(
 ) {
     val isScanning by viewModel.isScanning.collectAsState()
     val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    val connectingDeviceId by viewModel.connectingDeviceId.collectAsState()
+    val selectedDeviceId by viewModel.selectedDeviceId.collectAsState()
+    val deviceFilter by viewModel.deviceFilter.collectAsState()
 
     Column(
         modifier = modifier
@@ -136,7 +140,7 @@ fun DeviceDiscoveryScreen(
                     modifier = Modifier.size(22.dp)
                 )
                 Text(
-                    text = "Device Discovery",
+                    text = "Bluetooth Device Discovery",
                     color = TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
@@ -147,21 +151,6 @@ fun DeviceDiscoveryScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(PrimaryBlue),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = SurfaceCanvas,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
                 IconButton(
                     onClick = { viewModel.navigateTo(GamepadScreen.CONTROLLER) },
                     modifier = Modifier
@@ -209,7 +198,7 @@ fun DeviceDiscoveryScreen(
                             .background(PrimaryBlue)
                     )
                     Text(
-                        text = "HID BROADCAST MODE",
+                        text = "BLUETOOTH HID & CONTROLLER PAIRING",
                         color = PrimaryBlue,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -218,107 +207,28 @@ fun DeviceDiscoveryScreen(
                 }
 
                 Text(
-                    text = "Channel 7 • 2.4 GHz",
+                    text = "2.4 GHz BLE • Auto-Pairing Active",
                     color = TextTertiary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
 
-            // Central Scanning Radar Module
-            CentralScanningRadar(isScanning = isScanning)
+            // Discovered Bluetooth Devices Composable Component
+            DiscoveredBluetoothDevicesView(
+                devices = discoveredDevices,
+                isScanning = isScanning,
+                connectingDeviceId = connectingDeviceId,
+                selectedDeviceId = selectedDeviceId,
+                activeFilter = deviceFilter,
+                onFilterChange = { viewModel.setDeviceFilter(it) },
+                onSelectDevice = { viewModel.selectDevice(it) },
+                onConnectDevice = { viewModel.initiatePairAndConnect(it) },
+                onDisconnectDevice = { viewModel.disconnectActiveDevice() },
+                onToggleScan = { viewModel.toggleDiscoveryScan() }
+            )
 
-            // Discovery Section Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(StatusSuccess)
-                    )
-                    Text(
-                        text = "NEARBY TARGETS (${discoveredDevices.size} DISCOVERED)",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-
-                Text(
-                    text = if (isScanning) "Auto-refreshing" else "Paused",
-                    color = PrimaryBlue,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            // Target Devices List
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                discoveredDevices.forEach { device ->
-                    DeviceTargetCard(
-                        device = device,
-                        onConnect = { viewModel.connectToDevice(device.id) },
-                        onOpenDiagnostics = { viewModel.navigateTo(GamepadScreen.DIAGNOSTICS) }
-                    )
-                }
-            }
-
-            // Bottom Action Controls
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Button(
-                    onClick = { viewModel.toggleDiscoveryScan() },
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceControl),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("toggle_discovery_scan_btn")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.StopCircle,
-                        contentDescription = null,
-                        tint = if (isScanning) StatusError else XboxGreenA,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isScanning) "Stop Discovery" else "Restart Discovery",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = TextTertiary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "PC not appearing? Ensure Phone Bridge server is running",
-                        color = TextTertiary,
-                        fontSize = 11.sp
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

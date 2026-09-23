@@ -84,7 +84,8 @@ enum class DeviceType {
     PC,
     LAPTOP,
     STEAM_DECK,
-    CONSOLE
+    CONSOLE,
+    GAMEPAD
 }
 
 data class DeviceTarget(
@@ -97,7 +98,10 @@ data class DeviceTarget(
     val isPaired: Boolean,
     val isConnected: Boolean,
     val streamRate: String,
-    val lastSeenOrConnected: String = "Just now"
+    val lastSeenOrConnected: String = "Just now",
+    val batteryPct: Int? = null,
+    val macAddress: String = "7C:BB:8A:2F:10:9A",
+    val protocol: String = "Bluetooth HID"
 )
 
 data class TelemetryData(

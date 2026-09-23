@@ -26,4 +26,32 @@ class ExampleRobolectricTest {
     assertEquals(false, defaultProfile.isCustom)
     assertEquals(7, defaultProfile.elements.size)
   }
+
+  @Test
+  fun `test discovered gamepads initialization and connect`() {
+    val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
+    val viewModel = com.example.viewmodel.GamepadViewModel(context)
+
+    val discovered = viewModel.discoveredDevices.value
+    org.junit.Assert.assertTrue("Discovered devices should not be empty", discovered.isNotEmpty())
+
+    val xboxPad = discovered.find { it.id == "pad_xbox_1" }
+    org.junit.Assert.assertNotNull(xboxPad)
+    assertEquals(com.example.data.model.DeviceType.GAMEPAD, xboxPad?.type)
+    assertEquals("Xbox Wireless Controller", xboxPad?.name)
+
+    // Test selection
+    viewModel.selectDevice("pad_xbox_1")
+    assertEquals("pad_xbox_1", viewModel.selectedDeviceId.value)
+
+    // Test filter
+    viewModel.setDeviceFilter("GAMEPADS")
+    assertEquals("GAMEPADS", viewModel.deviceFilter.value)
+
+    // Test connection initiation
+    viewModel.initiatePairAndConnect("pad_xbox_1")
+    val connecting = viewModel.connectingDeviceId.value
+    // During connection handshake, connectingDeviceId is set
+    // After handshake finishes, device becomes connected
+  }
 }

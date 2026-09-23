@@ -75,6 +75,15 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     private val _isScanning = MutableStateFlow(true)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
 
+    private val _connectingDeviceId = MutableStateFlow<String?>(null)
+    val connectingDeviceId: StateFlow<String?> = _connectingDeviceId.asStateFlow()
+
+    private val _selectedDeviceId = MutableStateFlow<String?>("pad_xbox_1")
+    val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
+
+    private val _deviceFilter = MutableStateFlow("ALL") // "ALL", "GAMEPADS", "HOSTS"
+    val deviceFilter: StateFlow<String> = _deviceFilter.asStateFlow()
+
     private val _discoveredDevices = MutableStateFlow<List<DeviceTarget>>(emptyList())
     val discoveredDevices: StateFlow<List<DeviceTarget>> = _discoveredDevices.asStateFlow()
 
@@ -107,7 +116,82 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     private fun initInitialData() {
-        val initialPaired = listOf(
+        val initialDiscovered = listOf(
+            DeviceTarget(
+                id = "pad_xbox_1",
+                name = "Xbox Wireless Controller",
+                subtitle = "Bluetooth LE HID • Carbon Black",
+                type = DeviceType.GAMEPAD,
+                connectionType = "BLE HID / XInput",
+                rssiDbm = -46,
+                isPaired = false,
+                isConnected = false,
+                streamRate = "Ready to Pair",
+                lastSeenOrConnected = "Active Beacon (Signal Strong)",
+                batteryPct = 88,
+                macAddress = "4C:0B:BE:91:2E:7A",
+                protocol = "BLE HID / XInput"
+            ),
+            DeviceTarget(
+                id = "pad_dualsense_1",
+                name = "DualSense Wireless Controller",
+                subtitle = "PlayStation HID • Haptics & Gyro Supported",
+                type = DeviceType.GAMEPAD,
+                connectionType = "Direct Bluetooth HID",
+                rssiDbm = -52,
+                isPaired = false,
+                isConnected = false,
+                streamRate = "Ready to Pair",
+                lastSeenOrConnected = "Active Beacon",
+                batteryPct = 74,
+                macAddress = "00:1B:DC:04:78:E2",
+                protocol = "PlayStation Bluetooth HID"
+            ),
+            DeviceTarget(
+                id = "pad_8bitdo_1",
+                name = "8BitDo Ultimate Bluetooth",
+                subtitle = "Hall Effect Sticks • 1000Hz Polling",
+                type = DeviceType.GAMEPAD,
+                connectionType = "Bluetooth 5.0 Low Latency",
+                rssiDbm = -48,
+                isPaired = false,
+                isConnected = false,
+                streamRate = "Ready to Pair",
+                lastSeenOrConnected = "Discovered Just Now",
+                batteryPct = 84,
+                macAddress = "E4:5F:01:8A:2C:4D",
+                protocol = "Bluetooth 5.0 LL"
+            ),
+            DeviceTarget(
+                id = "pad_switch_1",
+                name = "Nintendo Switch Pro Controller",
+                subtitle = "Switch HID • Motion Sensors & HD Rumble",
+                type = DeviceType.GAMEPAD,
+                connectionType = "Switch Bluetooth HID",
+                rssiDbm = -64,
+                isPaired = false,
+                isConnected = false,
+                streamRate = "Ready to Pair",
+                lastSeenOrConnected = "Discovered 1m ago",
+                batteryPct = 95,
+                macAddress = "98:B6:E9:12:F4:30",
+                protocol = "Nintendo HID Protocol"
+            ),
+            DeviceTarget(
+                id = "pad_razer_1",
+                name = "Razer Kishi V2 Pro",
+                subtitle = "Mobile Gamepad • Microswitches & Analog Hall",
+                type = DeviceType.GAMEPAD,
+                connectionType = "Direct BLE Gamepad",
+                rssiDbm = -39,
+                isPaired = false,
+                isConnected = false,
+                streamRate = "Ready to Pair",
+                lastSeenOrConnected = "Discovered Just Now",
+                batteryPct = 100,
+                macAddress = "2C:F0:5D:87:11:AB",
+                protocol = "Direct BLE Gamepad"
+            ),
             DeviceTarget(
                 id = "host_1",
                 name = "Custom Rig (RTX 4090)",
@@ -118,31 +202,10 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                 isPaired = true,
                 isConnected = true,
                 streamRate = "125 Hz Stream",
-                lastSeenOrConnected = "Active Now (Current Session)"
-            ),
-            DeviceTarget(
-                id = "host_2",
-                name = "Living Room Media PC",
-                subtitle = "Direct Android HID",
-                type = DeviceType.PC,
-                connectionType = "Direct Android HID",
-                rssiDbm = -58,
-                isPaired = true,
-                isConnected = false,
-                streamRate = "Ready",
-                lastSeenOrConnected = "Yesterday at 11:24 PM"
-            ),
-            DeviceTarget(
-                id = "host_3",
-                name = "Alienware M16 Laptop",
-                subtitle = "Direct Bluetooth HID • Ready",
-                type = DeviceType.LAPTOP,
-                connectionType = "Direct Bluetooth HID",
-                rssiDbm = -62,
-                isPaired = true,
-                isConnected = false,
-                streamRate = "Ready",
-                lastSeenOrConnected = "Oct 24, 2024 · 4:15 PM"
+                lastSeenOrConnected = "Active Now (Current Session)",
+                batteryPct = null,
+                macAddress = "94:E6:F7:2B:90:1C",
+                protocol = "Windows Bridge HID"
             ),
             DeviceTarget(
                 id = "host_4",
@@ -154,11 +217,14 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                 isPaired = true,
                 isConnected = false,
                 streamRate = "Standby",
-                lastSeenOrConnected = "Oct 18, 2024 · 8:30 PM"
+                lastSeenOrConnected = "Oct 18, 2024 · 8:30 PM",
+                batteryPct = 68,
+                macAddress = "B0:D5:9D:6C:3E:91",
+                protocol = "Steam Remote HID"
             )
         )
-        _pairedHosts.value = initialPaired
-        _discoveredDevices.value = initialPaired
+        _discoveredDevices.value = initialDiscovered
+        _pairedHosts.value = initialDiscovered.filter { it.isPaired }
 
         // Load saved layout from Room if available
         viewModelScope.launch {
@@ -409,31 +475,103 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun connectToDevice(targetId: String) {
-        _pairedHosts.update { list ->
-            list.map { item ->
-                item.copy(isConnected = item.id == targetId)
-            }
+    fun selectDevice(targetId: String?) {
+        _selectedDeviceId.value = targetId
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
+
+    fun setDeviceFilter(filter: String) {
+        _deviceFilter.value = filter
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
+
+    fun initiatePairAndConnect(targetId: String) {
+        val target = _discoveredDevices.value.find { it.id == targetId } ?: return
+        if (target.isConnected) {
+            disconnectActiveDevice()
+            return
         }
-        val target = _pairedHosts.value.find { it.id == targetId }
-        if (target != null) {
+
+        viewModelScope.launch {
+            _connectingDeviceId.value = targetId
+            hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+            showToast("Pairing with ${target.name}...")
+
+            // Realistic connection handshake delay
+            kotlinx.coroutines.delay(650)
+
+            _discoveredDevices.update { list ->
+                list.map { item ->
+                    if (item.id == targetId) {
+                        item.copy(isPaired = true, isConnected = true, streamRate = "Active HID Link")
+                    } else {
+                        item.copy(isConnected = false)
+                    }
+                }
+            }
+
+            _pairedHosts.update { list ->
+                val existing = list.any { it.id == targetId }
+                val updatedTarget = _discoveredDevices.value.first { it.id == targetId }
+                if (existing) {
+                    list.map { if (it.id == targetId) updatedTarget else it.copy(isConnected = false) }
+                } else {
+                    list.map { it.copy(isConnected = false) } + updatedTarget
+                }
+            }
+
             _telemetry.update {
                 it.copy(
                     hostName = target.name,
-                    linkState = "HID Connected",
+                    linkState = "HID Active",
                     rfDbm = target.rssiDbm
                 )
             }
-            showToast("Connected to ${target.name}")
+
+            // Persist to Room
+            db.deviceDao().insertDevice(
+                com.example.data.local.PairedDeviceEntity(
+                    id = target.id,
+                    name = target.name,
+                    subtitle = target.subtitle,
+                    type = target.type.name,
+                    connectionType = target.connectionType,
+                    rssiDbm = target.rssiDbm,
+                    isPaired = true,
+                    isConnected = true,
+                    streamRate = target.streamRate,
+                    lastSeenOrConnected = "Active Now"
+                )
+            )
+
+            _connectingDeviceId.value = null
+            hapticManager.performMotorRumble(
+                enabled = _quickSettings.value.hapticsEnabled,
+                channel = com.example.util.HapticMotorChannel.DUAL_STEREO,
+                strength = _quickSettings.value.hapticStrength,
+                durationMs = 80L
+            )
+            showToast("Connected: ${target.name} paired successfully!")
         }
     }
 
+    fun connectToDevice(targetId: String) {
+        initiatePairAndConnect(targetId)
+    }
+
     fun disconnectActiveDevice() {
+        _discoveredDevices.update { list ->
+            list.map { it.copy(isConnected = false) }
+        }
         _pairedHosts.update { list ->
             list.map { it.copy(isConnected = false) }
         }
         _telemetry.update { it.copy(linkState = "Disconnected") }
-        showToast("Disconnected from host")
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+        showToast("Disconnected from device")
+        viewModelScope.launch {
+            db.deviceDao().disconnectAll()
+        }
     }
 
     // Quick Settings
