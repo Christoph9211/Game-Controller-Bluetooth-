@@ -85,6 +85,7 @@ import com.example.data.model.GamepadScreen
 import com.example.data.model.StickStylePreset
 import com.example.ui.components.ABXYCluster
 import com.example.ui.components.AnalogStick
+import com.example.ui.components.CanvasControllerLayoutBuilder
 import com.example.ui.components.DPadView
 import com.example.ui.components.QuickAuxButtons
 import com.example.ui.components.TriggerBumperGroup
@@ -118,6 +119,8 @@ fun CustomizeLayoutScreen(
     val selectedElementId by viewModel.selectedElementId.collectAsState()
     val editorTab by viewModel.editorActiveTab.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
+    val snapGridMode by viewModel.snapGridMode.collectAsState()
+    val isTestMode by viewModel.isTestMode.collectAsState()
 
     var showAdvancedModal by remember { mutableStateOf(false) }
 
@@ -150,15 +153,27 @@ fun CustomizeLayoutScreen(
             ) {
                 when (editorTab) {
                     "layout" -> {
-                        LayoutCanvasView(
+                        CanvasControllerLayoutBuilder(
                             elements = editingLayout.elements,
                             selectedId = selectedElementId,
-                            onSelect = { viewModel.selectElement(it) },
+                            snapGridMode = snapGridMode,
+                            isTestMode = isTestMode,
+                            onSelectElement = { viewModel.selectElement(it) },
                             onPositionChanged = { id, x, y ->
                                 viewModel.updateElementPosition(id, x, y)
                             },
-                            onCancel = { viewModel.cancelLayoutEdit() },
-                            onSave = { viewModel.saveLayout() }
+                            onScaleChanged = { id, scale ->
+                                viewModel.updateElementScale(id, scale)
+                            },
+                            onAddElement = { id, x, y ->
+                                viewModel.addElement(id, x, y)
+                            },
+                            onRemoveElement = { viewModel.removeElement(it) },
+                            onSetSnapGridMode = { viewModel.setSnapGridMode(it) },
+                            onToggleTestMode = { viewModel.toggleTestMode() },
+                            onApplyPreset = { viewModel.applyLayoutPreset(it) },
+                            onResetLayout = { viewModel.resetLayoutToDefault() },
+                            onSaveLayout = { viewModel.saveLayout() }
                         )
                     }
                     "mapping" -> {
@@ -170,14 +185,16 @@ fun CustomizeLayoutScreen(
                 }
             }
 
-            // Right-Hand Inspector Sidebar
-            InspectorSidebar(
-                selectedId = selectedElementId,
-                config = editingLayout.elements[selectedElementId] ?: ElementLayoutConfig(selectedElementId, 50f, 50f),
-                onScaleChange = { viewModel.updateElementScale(selectedElementId, it) },
-                onStyleChange = { viewModel.updateElementStyle(selectedElementId, it) },
-                onOpenAdvanced = { showAdvancedModal = true }
-            )
+            // Right-Hand Inspector Sidebar (visible in mapping or sticks tabs, or when not in test mode)
+            if (editorTab != "layout" && !isTestMode) {
+                InspectorSidebar(
+                    selectedId = selectedElementId,
+                    config = editingLayout.elements[selectedElementId] ?: ElementLayoutConfig(selectedElementId, 50f, 50f),
+                    onScaleChange = { viewModel.updateElementScale(selectedElementId, it) },
+                    onStyleChange = { viewModel.updateElementStyle(selectedElementId, it) },
+                    onOpenAdvanced = { showAdvancedModal = true }
+                )
+            }
         }
     }
 
@@ -685,6 +702,24 @@ private fun MovableElementWrapper(
             }
             ControllerElementId.ABXY -> {
                 ABXYCluster(sizeDp = (120 * config.scale).dp)
+            }
+            else -> {
+                // Paddles & Turbo
+                Box(
+                    modifier = Modifier
+                        .size((80 * config.scale).dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SurfaceControlRaised)
+                        .border(1.dp, ControlBorderGlow, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = elementId.displayName,
+                        color = TextPrimary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }

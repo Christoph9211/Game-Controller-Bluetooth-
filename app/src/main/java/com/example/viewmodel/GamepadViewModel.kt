@@ -63,6 +63,12 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     private val _editorActiveTab = MutableStateFlow("layout") // "layout", "mapping", "sticks"
     val editorActiveTab: StateFlow<String> = _editorActiveTab.asStateFlow()
 
+    private val _snapGridMode = MutableStateFlow("8DP") // "8DP", "16DP", "OFF"
+    val snapGridMode: StateFlow<String> = _snapGridMode.asStateFlow()
+
+    private val _isTestMode = MutableStateFlow(false)
+    val isTestMode: StateFlow<Boolean> = _isTestMode.asStateFlow()
+
     // Telemetry state
     private val _telemetry = MutableStateFlow(TelemetryData())
     val telemetry: StateFlow<TelemetryData> = _telemetry.asStateFlow()
@@ -330,6 +336,72 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
             updatedMap[id] = existing.copy(stylePreset = style)
             current.copy(elements = updatedMap)
         }
+    }
+
+    fun setSnapGridMode(mode: String) {
+        _snapGridMode.value = mode
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
+
+    fun toggleTestMode() {
+        _isTestMode.value = !_isTestMode.value
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+        showToast(if (_isTestMode.value) "Live Test Mode: test controls directly!" else "Blueprint Editor Mode")
+    }
+
+    fun addElement(id: ControllerElementId, xPercent: Float, yPercent: Float, scale: Float = 1.0f) {
+        val clampedX = xPercent.coerceIn(2f, 94f)
+        val clampedY = yPercent.coerceIn(2f, 92f)
+        _editingLayout.update { current ->
+            val updatedMap = current.elements.toMutableMap()
+            updatedMap[id] = ElementLayoutConfig(
+                elementId = id,
+                xPercent = clampedX,
+                yPercent = clampedY,
+                scale = scale
+            )
+            current.copy(elements = updatedMap)
+        }
+        _selectedElementId.value = id
+        hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, id.displayName)
+        showToast("Added ${id.displayName} to layout")
+    }
+
+    fun removeElement(id: ControllerElementId) {
+        _editingLayout.update { current ->
+            val updatedMap = current.elements.toMutableMap()
+            updatedMap.remove(id)
+            current.copy(elements = updatedMap)
+        }
+        val remaining = _editingLayout.value.elements.keys.firstOrNull()
+        if (remaining != null) {
+            _selectedElementId.value = remaining
+        }
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+        showToast("Removed ${id.displayName}")
+    }
+
+    fun applyLayoutPreset(presetKey: String) {
+        val newElements = when (presetKey) {
+            "FPS" -> ControllerLayoutProfile.fpsLayoutElements()
+            "FIGHTING" -> ControllerLayoutProfile.arcadeFightingLayoutElements()
+            "SOUTHPAW" -> ControllerLayoutProfile.southpawLayoutElements()
+            else -> ControllerLayoutProfile.defaultLayoutElements()
+        }
+        val presetName = when (presetKey) {
+            "FPS" -> "FPS Pro Layout"
+            "FIGHTING" -> "Arcade Fighter Layout"
+            "SOUTHPAW" -> "Southpaw Layout"
+            else -> "Default Asymmetric"
+        }
+        _editingLayout.value = ControllerLayoutProfile(
+            id = "preset_$presetKey",
+            name = presetName,
+            isCustom = true,
+            elements = newElements
+        )
+        hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, presetName)
+        showToast("Applied $presetName preset")
     }
 
     fun resetLayoutToDefault() {

@@ -7,7 +7,10 @@ enum class ControllerElementId(val displayName: String, val category: String) {
     AUX_BUTTONS("Select / Start", "System"),
     RT_RB("RT / RB", "Bumpers & Triggers"),
     RIGHT_STICK("Right Stick", "Analog Stick"),
-    ABXY("ABXY Cluster", "Action Buttons")
+    ABXY("ABXY Cluster", "Action Buttons"),
+    PADDLE_P1("Paddle P1", "Rear Paddles"),
+    PADDLE_P2("Paddle P2", "Rear Paddles"),
+    TURBO_BTN("Turbo / Rapid", "Special Actions")
 }
 
 enum class StickStylePreset(val label: String) {
@@ -76,6 +79,39 @@ data class ControllerLayoutProfile(
                 yPercent = 48f,
                 scale = 1.0f
             )
+        )
+
+        fun fpsLayoutElements(): Map<ControllerElementId, ElementLayoutConfig> = mapOf(
+            ControllerElementId.LT_LB to ElementLayoutConfig(ControllerElementId.LT_LB, 6f, 6f, 1.05f),
+            ControllerElementId.RT_RB to ElementLayoutConfig(ControllerElementId.RT_RB, 85f, 6f, 1.05f),
+            ControllerElementId.LEFT_STICK to ElementLayoutConfig(ControllerElementId.LEFT_STICK, 8f, 44f, 1.1f),
+            ControllerElementId.RIGHT_STICK to ElementLayoutConfig(ControllerElementId.RIGHT_STICK, 66f, 48f, 1.15f),
+            ControllerElementId.DPAD to ElementLayoutConfig(ControllerElementId.DPAD, 26f, 54f, 0.95f),
+            ControllerElementId.ABXY to ElementLayoutConfig(ControllerElementId.ABXY, 86f, 38f, 1.05f),
+            ControllerElementId.AUX_BUTTONS to ElementLayoutConfig(ControllerElementId.AUX_BUTTONS, 48f, 28f, 0.95f),
+            ControllerElementId.PADDLE_P1 to ElementLayoutConfig(ControllerElementId.PADDLE_P1, 14f, 76f, 1.0f),
+            ControllerElementId.PADDLE_P2 to ElementLayoutConfig(ControllerElementId.PADDLE_P2, 78f, 76f, 1.0f)
+        )
+
+        fun arcadeFightingLayoutElements(): Map<ControllerElementId, ElementLayoutConfig> = mapOf(
+            ControllerElementId.LT_LB to ElementLayoutConfig(ControllerElementId.LT_LB, 8f, 8f, 1.0f),
+            ControllerElementId.RT_RB to ElementLayoutConfig(ControllerElementId.RT_RB, 84f, 8f, 1.0f),
+            ControllerElementId.DPAD to ElementLayoutConfig(ControllerElementId.DPAD, 14f, 44f, 1.25f),
+            ControllerElementId.ABXY to ElementLayoutConfig(ControllerElementId.ABXY, 76f, 42f, 1.3f),
+            ControllerElementId.TURBO_BTN to ElementLayoutConfig(ControllerElementId.TURBO_BTN, 60f, 26f, 1.0f),
+            ControllerElementId.AUX_BUTTONS to ElementLayoutConfig(ControllerElementId.AUX_BUTTONS, 48f, 16f, 1.0f),
+            ControllerElementId.LEFT_STICK to ElementLayoutConfig(ControllerElementId.LEFT_STICK, 30f, 64f, 0.95f),
+            ControllerElementId.RIGHT_STICK to ElementLayoutConfig(ControllerElementId.RIGHT_STICK, 54f, 64f, 0.95f)
+        )
+
+        fun southpawLayoutElements(): Map<ControllerElementId, ElementLayoutConfig> = mapOf(
+            ControllerElementId.LT_LB to ElementLayoutConfig(ControllerElementId.LT_LB, 6f, 6f, 1.0f),
+            ControllerElementId.RT_RB to ElementLayoutConfig(ControllerElementId.RT_RB, 85f, 6f, 1.0f),
+            ControllerElementId.LEFT_STICK to ElementLayoutConfig(ControllerElementId.LEFT_STICK, 66f, 46f, 1.0f),
+            ControllerElementId.RIGHT_STICK to ElementLayoutConfig(ControllerElementId.RIGHT_STICK, 8f, 48f, 1.0f),
+            ControllerElementId.DPAD to ElementLayoutConfig(ControllerElementId.DPAD, 84f, 48f, 1.0f),
+            ControllerElementId.ABXY to ElementLayoutConfig(ControllerElementId.ABXY, 28f, 48f, 1.0f),
+            ControllerElementId.AUX_BUTTONS to ElementLayoutConfig(ControllerElementId.AUX_BUTTONS, 48f, 38f, 1.0f)
         )
     }
 }
