@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
@@ -56,6 +57,7 @@ import com.example.ui.components.ABXYCluster
 import com.example.ui.components.AnalogStick
 import com.example.ui.components.DPadView
 import com.example.ui.components.QuickAuxButtons
+import com.example.ui.components.SavedLayoutsManagerDialog
 import com.example.ui.components.TriggerBumperGroup
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
@@ -93,6 +95,7 @@ fun ControllerScreen(
     val lastPressedButton by viewModel.lastPressedButton.collectAsState()
     val toastMessage by viewModel.toastMessage.collectAsState()
     val lastHapticEvent by viewModel.lastHapticEvent.collectAsState()
+    val isSavedLayoutsManagerOpen by viewModel.isSavedLayoutsManagerOpen.collectAsState()
 
     val elements = activeLayout.elements
 
@@ -107,13 +110,14 @@ fun ControllerScreen(
             ControllerTopBar(
                 hostName = telemetry.hostName,
                 roundtripMs = telemetry.roundtripMs,
-                profileName = quickSettings.currentProfile,
+                profileName = activeLayout.name,
                 hapticsEnabled = quickSettings.hapticsEnabled,
                 lastHapticEvent = lastHapticEvent,
                 onOpenDrawer = { viewModel.openQuickDrawer() },
                 onNavigateCustomize = { viewModel.navigateTo(GamepadScreen.CUSTOMIZE_LAYOUT) },
                 onNavigateDiscovery = { viewModel.navigateTo(GamepadScreen.DEVICE_DISCOVERY) },
-                onNavigateDiagnostics = { viewModel.navigateTo(GamepadScreen.DIAGNOSTICS) }
+                onNavigateDiagnostics = { viewModel.navigateTo(GamepadScreen.DIAGNOSTICS) },
+                onOpenSavedLayouts = { viewModel.openSavedLayoutsManager() }
             )
 
             // Dynamic Controller Surface
@@ -309,6 +313,14 @@ fun ControllerScreen(
                 )
             }
         }
+
+        // Room Database Saved Layout Profiles Manager Dialog
+        if (isSavedLayoutsManagerOpen) {
+            SavedLayoutsManagerDialog(
+                viewModel = viewModel,
+                onDismiss = { viewModel.closeSavedLayoutsManager() }
+            )
+        }
     }
 }
 
@@ -322,7 +334,8 @@ private fun ControllerTopBar(
     onOpenDrawer: () -> Unit,
     onNavigateCustomize: () -> Unit,
     onNavigateDiscovery: () -> Unit,
-    onNavigateDiagnostics: () -> Unit
+    onNavigateDiagnostics: () -> Unit,
+    onOpenSavedLayouts: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -375,13 +388,22 @@ private fun ControllerTopBar(
                 )
             }
 
-            // Profile Chip
-            Box(
+            // Profile Chip (Clickable to switch layout configurations)
+            Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(SurfaceControl)
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                    .clickable { onOpenSavedLayouts() }
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Storage,
+                    contentDescription = null,
+                    tint = PrimaryContainerBlue,
+                    modifier = Modifier.size(11.dp)
+                )
                 Text(
                     text = profileName,
                     color = TextSecondary,
@@ -421,6 +443,23 @@ private fun ControllerTopBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Saved Layouts Manager Button (Room Database)
+            IconButton(
+                onClick = onOpenSavedLayouts,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(SurfaceCard)
+                    .testTag("nav_saved_layouts_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Storage,
+                    contentDescription = "Saved Layouts",
+                    tint = PrimaryContainerBlue,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
             // Discovery Button
             IconButton(
                 onClick = onNavigateDiscovery,

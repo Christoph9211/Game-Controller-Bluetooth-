@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.Button
@@ -506,6 +507,23 @@ fun QuickActionsDrawer(
 
                     // Deep Links to other screens
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                onClose()
+                                viewModel.navigateTo(GamepadScreen.CONTROLLER)
+                                viewModel.openSavedLayoutsManager()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceControl),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("drawer_saved_layouts_button")
+                        ) {
+                            Icon(Icons.Default.Storage, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Manage Saved Layouts (Room)", color = TextPrimary, fontSize = 13.sp)
+                        }
+
                         Button(
                             onClick = {
                                 viewModel.navigateTo(GamepadScreen.CUSTOMIZE_LAYOUT)
