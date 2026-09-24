@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.TouchApp
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -145,6 +146,7 @@ fun CanvasControllerLayoutBuilder(
     onApplyPreset: (String) -> Unit,
     onResetLayout: () -> Unit,
     onSaveLayout: () -> Unit,
+    onOpenSavedLayouts: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
@@ -172,7 +174,8 @@ fun CanvasControllerLayoutBuilder(
             onToggleTestMode = onToggleTestMode,
             onApplyPreset = onApplyPreset,
             onResetLayout = onResetLayout,
-            onSaveLayout = onSaveLayout
+            onSaveLayout = onSaveLayout,
+            onOpenSavedLayouts = onOpenSavedLayouts
         )
 
         // 2. Draggable Button Palette / Toolbox Dock
@@ -292,7 +295,8 @@ private fun BuilderToolbar(
     onToggleTestMode: () -> Unit,
     onApplyPreset: (String) -> Unit,
     onResetLayout: () -> Unit,
-    onSaveLayout: () -> Unit
+    onSaveLayout: () -> Unit,
+    onOpenSavedLayouts: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -399,6 +403,25 @@ private fun BuilderToolbar(
                         modifier = Modifier.size(18.dp)
                     )
                 }
+            }
+
+            // Saved Layout Profiles Button
+            Button(
+                onClick = onOpenSavedLayouts,
+                colors = ButtonDefaults.buttonColors(containerColor = SurfaceControl),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .height(36.dp)
+                    .testTag("canvas_open_profiles_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Storage,
+                    contentDescription = "Saved Layout Profiles",
+                    tint = PrimaryBlue,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Profiles", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             }
 
             // Save Layout Button

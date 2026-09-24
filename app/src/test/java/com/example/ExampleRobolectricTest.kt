@@ -153,4 +153,56 @@ class ExampleRobolectricTest {
     org.junit.Assert.assertTrue("Avg latency should be reasonable", (burstResult?.avgLatencyMs ?: 0f) > 0f)
     assertEquals("EXCELLENT", burstResult?.qualityGrade)
   }
+
+  @Test
+  fun `test room database custom layout configurations persistence and management`() = kotlinx.coroutines.test.runTest {
+    val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
+    val viewModel = com.example.viewmodel.GamepadViewModel(context)
+
+    // 1. Verify dialog open/close state
+    org.junit.Assert.assertFalse(viewModel.isSavedLayoutsManagerOpen.value)
+    viewModel.openSavedLayoutsManager()
+    org.junit.Assert.assertTrue(viewModel.isSavedLayoutsManagerOpen.value)
+    viewModel.closeSavedLayoutsManager()
+    org.junit.Assert.assertFalse(viewModel.isSavedLayoutsManagerOpen.value)
+
+    // 2. Direct Repository test ensuring Room persistence
+    val repository = viewModel.customLayoutRepository
+    repository.seedInitialPresetsIfEmpty()
+    val initialPresets = repository.getAllLayoutsSync()
+    org.junit.Assert.assertTrue("Initial presets should be seeded in Room", initialPresets.isNotEmpty())
+
+    // 3. Save a custom layout to Room
+    val customId = "layout_custom_test"
+    val testLayout = com.example.data.local.CustomLayoutEntity(
+      id = customId,
+      name = "Tournament Claw Layout",
+      description = "4-finger claw grip optimization",
+      isPreset = false,
+      elementCount = 7,
+      elementsJson = com.example.data.local.CustomLayoutSerializer.serialize(
+        com.example.data.model.ControllerLayoutProfile.defaultLayoutElements()
+      )
+    )
+    repository.saveLayout(testLayout)
+
+    val fetched = repository.getLayoutById(customId)
+    org.junit.Assert.assertNotNull("Layout should be fetched from Room", fetched)
+    assertEquals("Tournament Claw Layout", fetched?.name)
+    assertEquals("4-finger claw grip optimization", fetched?.description)
+
+    val allAfterInsert = repository.getAllLayoutsSync()
+    org.junit.Assert.assertTrue(allAfterInsert.any { it.id == customId })
+
+    // 4. Update the layout
+    val updated = fetched!!.copy(name = "Claw Layout V2")
+    repository.updateLayout(updated)
+    val fetchedUpdated = repository.getLayoutById(customId)
+    assertEquals("Claw Layout V2", fetchedUpdated?.name)
+
+    // 5. Delete the layout from Room
+    repository.deleteLayoutById(customId)
+    val fetchedDeleted = repository.getLayoutById(customId)
+    org.junit.Assert.assertNull("Layout should be deleted from Room", fetchedDeleted)
+  }
 }

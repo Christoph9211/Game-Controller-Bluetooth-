@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
+import com.example.data.local.CustomLayoutEntity
+import com.example.data.local.CustomLayoutRepository
+import com.example.data.local.CustomLayoutSerializer
 import com.example.data.local.GamepadDatabase
 import com.example.data.local.LayoutConfigEntity
 import com.example.data.local.PairedDeviceEntity
@@ -21,10 +24,13 @@ import com.example.util.HapticMotorChannel
 import com.example.util.HapticTelemetryEvent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -42,7 +48,23 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         application,
         GamepadDatabase::class.java,
         "gamepad_db"
-    ).build()
+    ).fallbackToDestructiveMigration().build()
+
+    // Room Repository for Saved Layout Configurations
+    val customLayoutRepository = CustomLayoutRepository(db.customLayoutDao())
+
+    val savedLayouts: StateFlow<List<CustomLayoutEntity>> = customLayoutRepository.allLayouts
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    private val _isSavedLayoutsManagerOpen = MutableStateFlow(false)
+    val isSavedLayoutsManagerOpen: StateFlow<Boolean> = _isSavedLayoutsManagerOpen.asStateFlow()
+
+    private val _activeSavedLayoutId = MutableStateFlow<String?>("preset_default")
+    val activeSavedLayoutId: StateFlow<String?> = _activeSavedLayoutId.asStateFlow()
 
     // Navigation state
     private val _currentScreen = MutableStateFlow(GamepadScreen.CONTROLLER)
@@ -256,6 +278,11 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         )
         _discoveredDevices.value = initialDiscovered
         _pairedHosts.value = initialDiscovered.filter { it.isPaired }
+
+        // Seed initial Room layouts if database is empty
+        viewModelScope.launch {
+            customLayoutRepository.seedInitialPresetsIfEmpty()
+        }
 
         // Load saved layout from Room if available
         viewModelScope.launch {
@@ -483,13 +510,38 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         showToast("Controls restored to default ergonomics")
     }
 
-    fun saveLayout() {
-        val currentEdit = _editingLayout.value
-        _activeLayout.value = currentEdit.copy(isCustom = true, name = "Custom Layout")
-        showToast("Controller preset saved to device memory")
+    fun openSavedLayoutsManager() {
+        _isSavedLayoutsManagerOpen.value = true
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
 
-        // Persist to Room
-        viewModelScope.launch {
+    fun closeSavedLayoutsManager() {
+        _isSavedLayoutsManagerOpen.value = false
+    }
+
+    fun saveCurrentLayoutAs(name: String, description: String = ""): kotlinx.coroutines.Job {
+        val currentEdit = _editingLayout.value
+        val trimmedName = name.trim().ifBlank { "Custom Layout (${System.currentTimeMillis() % 10000})" }
+        val id = "layout_" + UUID.randomUUID().toString().take(8)
+        val json = CustomLayoutSerializer.serialize(currentEdit.elements)
+        val entity = CustomLayoutEntity(
+            id = id,
+            name = trimmedName,
+            description = description.trim(),
+            isPreset = false,
+            elementCount = currentEdit.elements.size,
+            elementsJson = json,
+            lastModified = System.currentTimeMillis()
+        )
+
+        return viewModelScope.launch {
+            customLayoutRepository.saveLayout(entity)
+            _activeSavedLayoutId.value = id
+            val newProfile = currentEdit.copy(id = id, name = trimmedName, isCustom = true)
+            _activeLayout.value = newProfile
+            _editingLayout.value = newProfile
+
+            // Also persist to legacy configs table for backwards compatibility
             val entities = currentEdit.elements.values.map {
                 LayoutConfigEntity(
                     elementIdString = it.elementId.name,
@@ -500,6 +552,129 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                 )
             }
             db.layoutDao().insertConfigs(entities)
+
+            showToast("Saved \"$trimmedName\" to Room database")
+            hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "Save")
+        }
+    }
+
+    fun loadSavedLayout(layoutId: String): kotlinx.coroutines.Job = viewModelScope.launch {
+        val entity = customLayoutRepository.getLayoutById(layoutId)
+        if (entity != null) {
+            val elements = CustomLayoutSerializer.deserialize(entity.elementsJson)
+            val profile = ControllerLayoutProfile(
+                id = entity.id,
+                name = entity.name,
+                isCustom = !entity.isPreset,
+                elements = elements
+            )
+            _activeLayout.value = profile
+            _editingLayout.value = profile
+            _activeSavedLayoutId.value = entity.id
+
+            // Also update legacy configs table
+            val entities = elements.values.map {
+                LayoutConfigEntity(
+                    elementIdString = it.elementId.name,
+                    xPercent = it.xPercent,
+                    yPercent = it.yPercent,
+                    scale = it.scale,
+                    stylePresetString = it.stylePreset.name
+                )
+            }
+            db.layoutDao().insertConfigs(entities)
+
+            showToast("Loaded \"${entity.name}\" layout")
+            hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "Load")
+        } else {
+            showToast("Failed to load layout")
+        }
+    }
+
+    fun deleteSavedLayout(layoutId: String): kotlinx.coroutines.Job = viewModelScope.launch {
+        customLayoutRepository.deleteLayoutById(layoutId)
+        if (_activeSavedLayoutId.value == layoutId) {
+            _activeSavedLayoutId.value = "preset_default"
+        }
+        showToast("Deleted layout configuration")
+        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+    }
+
+    fun duplicateSavedLayout(layoutId: String): kotlinx.coroutines.Job = viewModelScope.launch {
+        val existing = customLayoutRepository.getLayoutById(layoutId)
+        if (existing != null) {
+            val newId = "layout_" + UUID.randomUUID().toString().take(8)
+            val copy = existing.copy(
+                id = newId,
+                name = "${existing.name} (Copy)",
+                isPreset = false,
+                lastModified = System.currentTimeMillis()
+            )
+            customLayoutRepository.saveLayout(copy)
+            showToast("Duplicated \"${existing.name}\"")
+            hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+        }
+    }
+
+    fun updateSavedLayoutDetails(layoutId: String, newName: String, newDescription: String): kotlinx.coroutines.Job = viewModelScope.launch {
+        val existing = customLayoutRepository.getLayoutById(layoutId)
+        if (existing != null) {
+            val updated = existing.copy(
+                name = newName.trim().ifBlank { existing.name },
+                description = newDescription.trim(),
+                lastModified = System.currentTimeMillis()
+            )
+            customLayoutRepository.saveLayout(updated)
+            if (_activeSavedLayoutId.value == layoutId) {
+                _activeLayout.update { it.copy(name = updated.name) }
+                _editingLayout.update { it.copy(name = updated.name) }
+            }
+            showToast("Updated \"${updated.name}\"")
+            hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
+        }
+    }
+
+    fun saveLayout(): kotlinx.coroutines.Job {
+        val currentEdit = _editingLayout.value
+        val activeId = _activeSavedLayoutId.value ?: "preset_default"
+
+        return viewModelScope.launch {
+            val existing = customLayoutRepository.getLayoutById(activeId)
+            val isCustomActive = existing != null && !existing.isPreset
+            val layoutId = if (isCustomActive) activeId else "layout_" + UUID.randomUUID().toString().take(8)
+            val layoutName = if (isCustomActive) existing!!.name else "Custom Layout (${System.currentTimeMillis() % 10000})"
+            val json = CustomLayoutSerializer.serialize(currentEdit.elements)
+
+            val entity = CustomLayoutEntity(
+                id = layoutId,
+                name = layoutName,
+                description = existing?.description ?: "User customized gamepad arrangement",
+                isPreset = false,
+                elementCount = currentEdit.elements.size,
+                elementsJson = json,
+                lastModified = System.currentTimeMillis()
+            )
+            customLayoutRepository.saveLayout(entity)
+            _activeSavedLayoutId.value = layoutId
+
+            val profile = currentEdit.copy(id = layoutId, name = layoutName, isCustom = true)
+            _activeLayout.value = profile
+            _editingLayout.value = profile
+
+            // Persist to legacy Room table as well
+            val entities = currentEdit.elements.values.map {
+                LayoutConfigEntity(
+                    elementIdString = it.elementId.name,
+                    xPercent = it.xPercent,
+                    yPercent = it.yPercent,
+                    scale = it.scale,
+                    stylePresetString = it.stylePreset.name
+                )
+            }
+            db.layoutDao().insertConfigs(entities)
+
+            showToast("Saved \"$layoutName\" to Room database")
+            hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "SaveLayout")
         }
     }
 

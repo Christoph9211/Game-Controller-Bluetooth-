@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -88,6 +89,7 @@ import com.example.ui.components.AnalogStick
 import com.example.ui.components.CanvasControllerLayoutBuilder
 import com.example.ui.components.DPadView
 import com.example.ui.components.QuickAuxButtons
+import com.example.ui.components.SavedLayoutsManagerDialog
 import com.example.ui.components.TriggerBumperGroup
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
@@ -121,6 +123,8 @@ fun CustomizeLayoutScreen(
     val toastMessage by viewModel.toastMessage.collectAsState()
     val snapGridMode by viewModel.snapGridMode.collectAsState()
     val isTestMode by viewModel.isTestMode.collectAsState()
+    val isSavedLayoutsManagerOpen by viewModel.isSavedLayoutsManagerOpen.collectAsState()
+    val savedLayouts by viewModel.savedLayouts.collectAsState()
 
     var showAdvancedModal by remember { mutableStateOf(false) }
 
@@ -133,9 +137,11 @@ fun CustomizeLayoutScreen(
         // Header & Tabs Bar
         EditorHeader(
             activeTab = editorTab,
+            savedLayoutCount = savedLayouts.size,
             onTabSelect = { viewModel.setEditorTab(it) },
             onBack = { viewModel.navigateTo(GamepadScreen.CONTROLLER) },
-            onReset = { viewModel.resetLayoutToDefault() }
+            onReset = { viewModel.resetLayoutToDefault() },
+            onOpenSavedLayouts = { viewModel.openSavedLayoutsManager() }
         )
 
         // Main Editor Canvas + Inspector Split
@@ -173,7 +179,8 @@ fun CustomizeLayoutScreen(
                             onToggleTestMode = { viewModel.toggleTestMode() },
                             onApplyPreset = { viewModel.applyLayoutPreset(it) },
                             onResetLayout = { viewModel.resetLayoutToDefault() },
-                            onSaveLayout = { viewModel.saveLayout() }
+                            onSaveLayout = { viewModel.saveLayout() },
+                            onOpenSavedLayouts = { viewModel.openSavedLayoutsManager() }
                         )
                     }
                     "mapping" -> {
@@ -234,14 +241,24 @@ fun CustomizeLayoutScreen(
             onDismiss = { showAdvancedModal = false }
         )
     }
+
+    // Room Database Saved Layout Profiles Manager Dialog
+    if (isSavedLayoutsManagerOpen) {
+        SavedLayoutsManagerDialog(
+            viewModel = viewModel,
+            onDismiss = { viewModel.closeSavedLayoutsManager() }
+        )
+    }
 }
 
 @Composable
 private fun EditorHeader(
     activeTab: String,
+    savedLayoutCount: Int,
     onTabSelect: (String) -> Unit,
     onBack: () -> Unit,
-    onReset: () -> Unit
+    onReset: () -> Unit,
+    onOpenSavedLayouts: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -290,6 +307,32 @@ private fun EditorHeader(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Saved Profiles Button
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(SurfaceCard)
+                        .border(1.dp, PrimaryContainerBlue.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .clickable { onOpenSavedLayouts() }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .testTag("header_saved_layouts_btn"),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Storage,
+                        contentDescription = "Saved Layouts",
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Profiles ($savedLayoutCount)",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))

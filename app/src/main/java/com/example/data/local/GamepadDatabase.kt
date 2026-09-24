@@ -66,8 +66,13 @@ interface PairedDeviceDao {
     suspend fun disconnectAll()
 }
 
-@Database(entities = [LayoutConfigEntity::class, PairedDeviceEntity::class], version = 1, exportSchema = false)
+@Database(
+    entities = [LayoutConfigEntity::class, PairedDeviceEntity::class, CustomLayoutEntity::class],
+    version = 2,
+    exportSchema = false
+)
 abstract class GamepadDatabase : RoomDatabase() {
     abstract fun layoutDao(): LayoutConfigDao
     abstract fun deviceDao(): PairedDeviceDao
+    abstract fun customLayoutDao(): CustomLayoutDao
 }
