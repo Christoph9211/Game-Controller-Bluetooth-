@@ -1,4 +1,16 @@
-# Bluetooth Gamepad
+# Bluetooth Gamepad — UI prototype
+
+**Project label: UI PROTOTYPE — BLUETOOTH NOT IMPLEMENTED**
+
+This is the separate Jetpack Compose interface prototype. Its controller, layout editor, saved profiles, and phone haptics work locally; discovery, connections, and link diagnostics are simulated. It does not transmit Bluetooth HID input or include the Windows bridge.
+
+## Related controller projects
+
+| Repository | Role |
+| --- | --- |
+| [Android-Bluetooth-Gamepad](https://github.com/Christoph9211/Android-Bluetooth-Gamepad) | Main controller project: native HID and experimental Windows bridge |
+| [Bluetooth-Gamepad-Studio-](https://github.com/Christoph9211/Bluetooth-Gamepad-Studio-) | Duplicate controller copy with build/configuration differences |
+| [Game-Controller-Bluetooth-](https://github.com/Christoph9211/Game-Controller-Bluetooth-) | Separate UI prototype; Bluetooth transmission not implemented |
 
 Bluetooth Gamepad is an Android controller interface built with Jetpack Compose. You can interact with an on-screen gamepad, arrange its controls, save layout profiles, and try haptic feedback on the phone.
 
