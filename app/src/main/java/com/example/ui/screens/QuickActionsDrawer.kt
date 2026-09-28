@@ -439,6 +439,48 @@ fun QuickActionsDrawer(
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Recenter sticks on touch", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("First contact is neutral", color = TextTertiary, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = quickSettings.recenterSticksOnTouch,
+                                onCheckedChange = viewModel::setRecenterSticksOnTouch,
+                                colors = SwitchDefaults.colors(checkedThumbColor = PrimaryContainerBlue),
+                                modifier = Modifier.testTag("drawer_recenter_sticks_switch")
+                            )
+                        }
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("EXTRA ACTIVATION REACH", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text("${quickSettings.extraActivationReachDp} dp", color = XboxBlueX, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Text(
+                            "How far outside the stick you can touch to reposition its center.",
+                            color = TextTertiary,
+                            fontSize = 11.sp
+                        )
+                        Slider(
+                            value = quickSettings.extraActivationReachDp.toFloat(),
+                            onValueChange = { viewModel.setExtraActivationReachDp(it.toInt()) },
+                            valueRange = 0f..48f,
+                            enabled = quickSettings.recenterSticksOnTouch,
+                            modifier = Modifier.testTag("drawer_activation_reach_slider"),
+                            colors = SliderDefaults.colors(thumbColor = PrimaryContainerBlue, activeTrackColor = PrimaryContainerBlue)
+                        )
+                        Button(
+                            onClick = viewModel::resetStickTouchSettings,
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceControl),
+                            modifier = Modifier.testTag("drawer_stick_defaults_button")
+                        ) { Text("Stick defaults", color = TextPrimary, fontSize = 11.sp) }
+                    }
+
+                    // Deadzone Slider
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text("STICK DEADZONE", color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Bold)

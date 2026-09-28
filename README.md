@@ -35,6 +35,8 @@ Use the existing [PhoneGamepadBridge companion and setup instructions](https://g
 
 ## Controls and customization
 
+- Floating analog sticks recenter their visible base at the initial touch and remain neutral until the thumb moves. In **Quick Actions**, “Recenter sticks on touch” is enabled by default and “Extra activation reach” defaults to 24 dp (adjustable from 0–48 dp); disabling it restores fixed-center sticks.
+
 - Buttons send press and release; L3/R3 have dedicated holdable buttons. Sticks, buttons, D-pad and triggers accept simultaneous fingers. Trigger position controls 0-255 pressure; the source digital trigger bits engage at 128.
 - The D-pad accepts eight directions. Sticks use a radial deadzone, initially 4%, adjustable from 0-25%.
 - Quick actions select a 4 ms experimental, 8 ms default, or 16 ms compatibility analog send interval. These are application scheduling settings, not guaranteed radio rates.

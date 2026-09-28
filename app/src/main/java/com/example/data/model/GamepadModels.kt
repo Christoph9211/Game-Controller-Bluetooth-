@@ -135,6 +135,8 @@ data class QuickActionsSettings(
     val turboEnabled: Boolean = false,
     val deadzonePct: Int = 4,
     val sendIntervalMs: Int = 8,
+    val recenterSticksOnTouch: Boolean = true,
+    val extraActivationReachDp: Int = 24,
     val audioHapticSync: Boolean = true
 )
 

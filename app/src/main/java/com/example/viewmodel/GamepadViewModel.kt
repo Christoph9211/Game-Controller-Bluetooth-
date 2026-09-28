@@ -94,7 +94,13 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     val telemetry: StateFlow<TelemetryData> = _telemetry.asStateFlow()
 
     // Quick Settings
-    private val _quickSettings = MutableStateFlow(QuickActionsSettings())
+    private val stickPreferences = application.getSharedPreferences("stick_settings", 0)
+    private val _quickSettings = MutableStateFlow(
+        QuickActionsSettings(
+            recenterSticksOnTouch = stickPreferences.getBoolean("recenter_sticks_on_touch", true),
+            extraActivationReachDp = stickPreferences.getInt("extra_activation_reach_dp", 24).coerceIn(0, 48)
+        )
+    )
     val quickSettings: StateFlow<QuickActionsSettings> = _quickSettings.asStateFlow()
 
     // Toast message for layout saved or status
@@ -668,6 +674,25 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     fun setDeadzone(pct: Int) {
         releaseControls()
         _quickSettings.update { it.copy(deadzonePct = pct.coerceIn(0,25)) }
+    }
+
+    fun setRecenterSticksOnTouch(enabled: Boolean) {
+        _quickSettings.update { it.copy(recenterSticksOnTouch = enabled) }
+        stickPreferences.edit().putBoolean("recenter_sticks_on_touch", enabled).apply()
+        // Changing touch geometry is an interruption: never retain an old stick value.
+        releaseControls()
+    }
+
+    fun setExtraActivationReachDp(reachDp: Int) {
+        val bounded = reachDp.coerceIn(0, 48)
+        _quickSettings.update { it.copy(extraActivationReachDp = bounded) }
+        stickPreferences.edit().putInt("extra_activation_reach_dp", bounded).apply()
+        releaseControls()
+    }
+
+    fun resetStickTouchSettings() {
+        setRecenterSticksOnTouch(true)
+        setExtraActivationReachDp(24)
     }
 
     fun setSendInterval(ms: Int) {

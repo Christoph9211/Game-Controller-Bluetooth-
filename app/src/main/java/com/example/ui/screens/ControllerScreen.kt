@@ -193,8 +193,12 @@ fun ControllerScreen(
                         sizeDp = (116 * leftStickConfig.scale).dp,
                         label = "Left Stick",
                         stylePreset = leftStickConfig.stylePreset,
+                        recenterOnTouch = quickSettings.recenterSticksOnTouch,
+                        extraActivationReachDp = quickSettings.extraActivationReachDp.dp,
+                        deadzonePct = quickSettings.deadzonePct,
                         modifier = Modifier.offset {
-                            IntOffset(xPos.roundToPx(), yPos.roundToPx())
+                            val reach = if (quickSettings.recenterSticksOnTouch) quickSettings.extraActivationReachDp.dp.roundToPx() else 0
+                            IntOffset(xPos.roundToPx() - reach, yPos.roundToPx() - reach)
                         },
                         onMove = { x, y -> viewModel.onLeftStickMoved(x, y) },
                         onStickClick = { viewModel.onButtonChanged("L3", it) }
@@ -240,8 +244,12 @@ fun ControllerScreen(
                         sizeDp = (116 * rightStickConfig.scale).dp,
                         label = "Right Stick",
                         stylePreset = rightStickConfig.stylePreset,
+                        recenterOnTouch = quickSettings.recenterSticksOnTouch,
+                        extraActivationReachDp = quickSettings.extraActivationReachDp.dp,
+                        deadzonePct = quickSettings.deadzonePct,
                         modifier = Modifier.offset {
-                            IntOffset(xPos.roundToPx(), yPos.roundToPx())
+                            val reach = if (quickSettings.recenterSticksOnTouch) quickSettings.extraActivationReachDp.dp.roundToPx() else 0
+                            IntOffset(xPos.roundToPx() - reach, yPos.roundToPx() - reach)
                         },
                         onMove = { x, y -> viewModel.onRightStickMoved(x, y) },
                         onStickClick = { viewModel.onButtonChanged("R3", it) }

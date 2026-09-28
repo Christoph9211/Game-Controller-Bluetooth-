@@ -42,6 +42,34 @@ class ControllerGesturesTest {
         compose.runOnIdle { assertEquals(setOf("A"),held); visible=false }
         compose.runOnIdle { assertTrue(held.isEmpty()) }
     }
+    @Test fun floatingStickAndHeldClickResetIndependently() {
+        var position = Offset.Zero
+        var clicked = false
+        var generation by mutableStateOf(0)
+        compose.setContent {
+            key(generation) {
+                AnalogStick(onMove = { x, y -> position = Offset(x, y) }, onStickClick = { clicked = it })
+            }
+        }
+        val stick = compose.onNodeWithTag("analog_stick_left")
+        stick.performTouchInput { down(0, Offset(width * .35f, height * .4f)) }
+        compose.runOnIdle { assertEquals(Offset.Zero, position) }
+        stick.performTouchInput { moveBy(0, Offset(20f, 0f)) }
+        compose.runOnIdle { assertTrue(position.x > 0f) }
+        compose.onNodeWithContentDescription("L3").performTouchInput { down(1, center) }
+        compose.runOnIdle { assertTrue(clicked); assertTrue(position.x > 0f) }
+        compose.onNodeWithContentDescription("L3").performTouchInput { up(1) }
+        compose.runOnIdle { assertFalse(clicked); assertTrue(position.x > 0f) }
+        compose.runOnIdle { generation++ }
+        compose.runOnIdle { assertEquals(Offset.Zero, position); assertFalse(clicked) }
+        stick.performTouchInput { moveBy(0, Offset(5f, 0f)); up(0) }
+        compose.runOnIdle { assertEquals(Offset.Zero, position) }
+        stick.performTouchInput { down(center); moveBy(Offset(-20f, 0f)) }
+        compose.runOnIdle { assertTrue(position.x < 0f) }
+        stick.performTouchInput { cancel() }
+        compose.runOnIdle { assertEquals(Offset.Zero, position) }
+    }
+
     @Test fun dpadDiagonalReturnsNeutral() {
         var hat=8
         compose.setContent { DPadView(onHatChange={ hat=it }) }
