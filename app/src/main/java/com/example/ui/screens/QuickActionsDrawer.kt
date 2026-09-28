@@ -3,8 +3,6 @@ package com.example.ui.screens
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -56,12 +54,9 @@ import com.example.data.model.GamepadScreen
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
-import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.PrimaryContainerBlue
 import com.example.ui.theme.StatusError
-import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceContainerLowest
 import com.example.ui.theme.SurfaceControl
 import com.example.ui.theme.SurfaceControlRaised
 import com.example.ui.theme.SurfaceDefault
@@ -175,7 +170,7 @@ fun QuickActionsDrawer(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Ping: ${telemetry.roundtripMs}ms • Sampling: ${telemetry.samplingHz}Hz",
+                                text = "Sender interval: ${quickSettings.sendIntervalMs} ms · Ping unavailable",
                                 color = TextTertiary,
                                 fontSize = 11.sp
                             )
@@ -190,56 +185,11 @@ fun QuickActionsDrawer(
                         }
                     }
 
-                    // Profile Preset Switcher
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "PRESET PROFILE",
-                            color = TextSecondary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.5.sp
-                        )
+                    Button(onClick = {
+                        viewModel.closeQuickDrawer()
+                        viewModel.openSavedLayoutsManager()
+                    }) { Text("Choose saved layout") }
 
-                        val profiles = listOf(
-                            "P1: Low Latency FPS",
-                            "P2: Racing Sim",
-                            "P3: Retro Arcade"
-                        )
-
-                        profiles.forEach { prof ->
-                            val isSelected = quickSettings.currentProfile == prof
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(if (isSelected) ActiveControlFill.copy(alpha = 0.4f) else SurfaceCard)
-                                    .border(
-                                        width = 1.dp,
-                                        color = if (isSelected) ControlBorderGlow else ControlBorderSubtle.copy(alpha = 0.3f),
-                                        shape = RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable { viewModel.updateProfile(prof) }
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = prof,
-                                    color = if (isSelected) TextPrimary else TextSecondary,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                                )
-                                if (isSelected) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(8.dp)
-                                            .clip(CircleShape)
-                                            .background(StatusSuccess)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     // Toggles (Haptics, Gyro, Turbo)
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -416,11 +366,12 @@ fun QuickActionsDrawer(
                         ) {
                             Column {
                                 Text("Gyro Aim Assist", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Tilt device for precision adjustments", color = TextTertiary, fontSize = 11.sp)
+                                Text("Unavailable in this controller port", color = TextTertiary, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = quickSettings.gyroAimEnabled,
-                                onCheckedChange = { viewModel.toggleGyro() },
+                                onCheckedChange = {},
+                                enabled = false,
                                 colors = SwitchDefaults.colors(checkedThumbColor = PrimaryContainerBlue)
                             )
                         }
@@ -433,20 +384,21 @@ fun QuickActionsDrawer(
                         ) {
                             Column {
                                 Text("Turbo Rapid Fire", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text("15 clicks/sec auto-fire repeat", color = TextTertiary, fontSize = 11.sp)
+                                Text("Unavailable in this controller port", color = TextTertiary, fontSize = 11.sp)
                             }
                             Switch(
                                 checked = quickSettings.turboEnabled,
-                                onCheckedChange = { viewModel.toggleTurbo() },
+                                onCheckedChange = {},
+                                enabled = false,
                                 colors = SwitchDefaults.colors(checkedThumbColor = PrimaryContainerBlue)
                             )
                         }
                     }
 
-                    // Polling Rate Selector (125Hz / 250Hz / 500Hz)
+                    // Application scheduling interval; not a radio-rate claim.
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "POLLING RATE",
+                            text = "ANALOG SEND INTERVAL",
                             color = TextSecondary,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -456,8 +408,8 @@ fun QuickActionsDrawer(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            listOf(125, 250, 500).forEach { hz ->
-                                val isSelected = quickSettings.pollRateHz == hz
+                            listOf(4, 8, 16).forEach { ms ->
+                                val isSelected = quickSettings.sendIntervalMs == ms
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
@@ -468,12 +420,12 @@ fun QuickActionsDrawer(
                                             if (isSelected) ControlBorderGlow else ControlBorderSubtle.copy(alpha = 0.4f),
                                             RoundedCornerShape(8.dp)
                                         )
-                                        .clickable { viewModel.setPollingRate(hz) }
+                                        .clickable { viewModel.setSendInterval(ms) }
                                         .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "${hz}Hz",
+                                        text = "${ms} ms",
                                         color = if (isSelected) TextPrimary else TextSecondary,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
@@ -495,7 +447,7 @@ fun QuickActionsDrawer(
                         Slider(
                             value = quickSettings.deadzonePct.toFloat(),
                             onValueChange = { viewModel.setDeadzone(it.toInt()) },
-                            valueRange = 0f..20f,
+                            valueRange = 0f..25f,
                             colors = SliderDefaults.colors(
                                 thumbColor = PrimaryContainerBlue,
                                 activeTrackColor = PrimaryContainerBlue

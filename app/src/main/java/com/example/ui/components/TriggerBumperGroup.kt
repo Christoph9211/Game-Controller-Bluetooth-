@@ -1,11 +1,8 @@
 package com.example.ui.components
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,9 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -41,10 +35,7 @@ import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
 import com.example.ui.theme.PrimaryContainerBlue
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceContainerLowest
 import com.example.ui.theme.SurfaceControl
-import com.example.ui.theme.SurfaceControlRaised
 import com.example.ui.theme.TextPrimary
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TextTertiary
@@ -54,10 +45,9 @@ fun TriggerBumperGroup(
     isLeft: Boolean,
     modifier: Modifier = Modifier,
     scale: Float = 1.0f,
-    onBumperPress: () -> Unit = {},
+    onBumperPress: (Boolean) -> Unit = {},
     onTriggerChange: (pressure: Float) -> Unit = {}
 ) {
-    val view = LocalView.current
     val triggerName = if (isLeft) "LT" else "RT"
     val bumperName = if (isLeft) "LB" else "RB"
 
@@ -70,8 +60,8 @@ fun TriggerBumperGroup(
     )
 
     val widthDp: Dp = (84 * scale).dp
-    val triggerHeightDp: Dp = (42 * scale).dp
-    val bumperHeightDp: Dp = (36 * scale).dp
+    val triggerHeightDp: Dp = (42 * scale).dp.coerceAtLeast(48.dp)
+    val bumperHeightDp: Dp = (36 * scale).dp.coerceAtLeast(48.dp)
 
     Column(
         modifier = modifier.testTag(if (isLeft) "group_lt_lb" else "group_rt_rb"),
@@ -92,41 +82,11 @@ fun TriggerBumperGroup(
                     shape = RoundedCornerShape(14.dp)
                 )
                 .testTag(if (isLeft) "trigger_lt" else "trigger_rt")
-                .pointerInput(triggerName) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val p = (offset.x / size.width.toFloat()).coerceIn(0.1f, 1f)
-                            triggerPressure = p
-                            onTriggerChange(p)
-                        },
-                        onDragEnd = {
-                            triggerPressure = 0f
-                            onTriggerChange(0f)
-                        },
-                        onDragCancel = {
-                            triggerPressure = 0f
-                            onTriggerChange(0f)
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val p = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
-                            triggerPressure = p
-                            onTriggerChange(p)
-                        }
-                    )
+                .controllerGesture(triggerName) { position, size ->
+                    triggerPressure=position?.let { (it.x / size.width).coerceIn(0f,1f) } ?: 0f
+                    onTriggerChange(triggerPressure)
                 }
-                .pointerInput("${triggerName}_tap") {
-                    detectTapGestures(
-                        onPress = {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            triggerPressure = 1f
-                            onTriggerChange(1f)
-                            tryAwaitRelease()
-                            triggerPressure = 0f
-                            onTriggerChange(0f)
-                        }
-                    )
-                },
+            ,
             contentAlignment = Alignment.Center
         ) {
             // Analog fill level bar
@@ -186,16 +146,8 @@ fun TriggerBumperGroup(
                     shape = RoundedCornerShape(10.dp)
                 )
                 .testTag(if (isLeft) "bumper_lb" else "bumper_rb")
-                .pointerInput(bumperName) {
-                    detectTapGestures(
-                        onPress = {
-                            isBumperPressed = true
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onBumperPress()
-                            tryAwaitRelease()
-                            isBumperPressed = false
-                        }
-                    )
+                .controllerButton(bumperName) { down ->
+                    if (isBumperPressed != down) { isBumperPressed=down; onBumperPress(down) }
                 },
             contentAlignment = Alignment.Center
         ) {

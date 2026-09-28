@@ -9,7 +9,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [28, 35])
 class ExampleRobolectricTest {
 
   @Test
@@ -25,34 +25,6 @@ class ExampleRobolectricTest {
     assertEquals("Asymmetric Offset (Default)", defaultProfile.name)
     assertEquals(false, defaultProfile.isCustom)
     assertEquals(7, defaultProfile.elements.size)
-  }
-
-  @Test
-  fun `test discovered gamepads initialization and connect`() {
-    val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
-    val viewModel = com.example.viewmodel.GamepadViewModel(context)
-
-    val discovered = viewModel.discoveredDevices.value
-    org.junit.Assert.assertTrue("Discovered devices should not be empty", discovered.isNotEmpty())
-
-    val xboxPad = discovered.find { it.id == "pad_xbox_1" }
-    org.junit.Assert.assertNotNull(xboxPad)
-    assertEquals(com.example.data.model.DeviceType.GAMEPAD, xboxPad?.type)
-    assertEquals("Xbox Wireless Controller", xboxPad?.name)
-
-    // Test selection
-    viewModel.selectDevice("pad_xbox_1")
-    assertEquals("pad_xbox_1", viewModel.selectedDeviceId.value)
-
-    // Test filter
-    viewModel.setDeviceFilter("GAMEPADS")
-    assertEquals("GAMEPADS", viewModel.deviceFilter.value)
-
-    // Test connection initiation
-    viewModel.initiatePairAndConnect("pad_xbox_1")
-    val connecting = viewModel.connectingDeviceId.value
-    // During connection handshake, connectingDeviceId is set
-    // After handshake finishes, device becomes connected
   }
 
   @Test
@@ -123,35 +95,43 @@ class ExampleRobolectricTest {
   }
 
   @Test
-  fun `test real time rssi and latency monitor dashboard`() = kotlinx.coroutines.test.runTest {
+  fun `connection starts without fabricated telemetry and denied permission cannot connect`() {
     val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
     val viewModel = com.example.viewmodel.GamepadViewModel(context)
+    org.junit.Assert.assertFalse(viewModel.connection.value.connected)
+    org.junit.Assert.assertNull(viewModel.connection.value.hostAddress)
+    assertEquals("Not connected",viewModel.telemetry.value.hostName)
+    viewModel.connectToDevice("00:11:22:33:44:55")
+    org.junit.Assert.assertFalse(viewModel.connection.value.connected)
+    if (android.os.Build.VERSION.SDK_INT >= 31) {
+      viewModel.bluetooth.start()
+      org.junit.Assert.assertTrue(viewModel.connection.value.status.contains("permission"))
+      org.junit.Assert.assertFalse(viewModel.connection.value.active)
+    }
+  }
 
-    // Verify initial RSSI and Latency histories are populated
-    val rssiHist = viewModel.rssiHistory.value
-    org.junit.Assert.assertTrue("RSSI history should be initialized", rssiHist.isNotEmpty())
-    org.junit.Assert.assertTrue("RSSI samples should be within reasonable BLE range", rssiHist.all { it in -90..-20 })
-
-    val latencyHist = viewModel.latencyHistory.value
-    org.junit.Assert.assertTrue("Latency history should be initialized", latencyHist.isNotEmpty())
-    org.junit.Assert.assertTrue("Latency samples should be within gaming range", latencyHist.all { it in 1f..30f })
-
-    // Verify gamepad selection for monitoring
-    assertEquals("pad_xbox_1", viewModel.selectedMonitorGamepadId.value)
-    viewModel.selectMonitorGamepad("pad_dualsense_1")
-    assertEquals("pad_dualsense_1", viewModel.selectedMonitorGamepadId.value)
-
-    // Verify Ping Burst Stress Test execution
-    org.junit.Assert.assertFalse(viewModel.isPingBurstRunning.value)
-    viewModel.runPingBurstTest(stepDelayMs = 0L)
-    org.robolectric.shadows.ShadowLooper.idleMainLooper()
-
-    val burstResult = viewModel.pingBurstResult.value
-    org.junit.Assert.assertNotNull("Ping burst result should be produced", burstResult)
-    assertEquals(100, burstResult?.packetCount)
-    assertEquals(0.0f, burstResult?.packetLossPct)
-    org.junit.Assert.assertTrue("Avg latency should be reasonable", (burstResult?.avgLatencyMs ?: 0f) > 0f)
-    assertEquals("EXCELLENT", burstResult?.qualityGrade)
+  @Test
+  fun `focus loss and navigation clear input and block stale touches`() {
+    val context = ApplicationProvider.getApplicationContext<Context>() as android.app.Application
+    val viewModel = com.example.viewmodel.GamepadViewModel(context)
+    viewModel.setForeground(true)
+    viewModel.onLeftStickMoved(1f,0f)
+    viewModel.onTriggerChanged(true,1f)
+    viewModel.onButtonChanged("A",true)
+    assertEquals(1f,viewModel.leftStickPos.value.first)
+    viewModel.setForeground(false)
+    viewModel.onLeftStickMoved(1f,0f)
+    assertEquals(0f,viewModel.leftStickPos.value.first)
+    assertEquals(0f,viewModel.ltPressure.value)
+    org.junit.Assert.assertNull(viewModel.lastPressedButton.value)
+    viewModel.setForeground(true)
+    viewModel.onButtonChanged("B",true)
+    viewModel.openQuickDrawer()
+    viewModel.onButtonChanged("A",true)
+    org.junit.Assert.assertNull(viewModel.lastPressedButton.value)
+    viewModel.navigateTo(com.example.data.model.GamepadScreen.CUSTOMIZE_LAYOUT)
+    viewModel.onTriggerChanged(false,1f)
+    assertEquals(0f,viewModel.rtPressure.value)
   }
 
   @Test
@@ -204,5 +184,13 @@ class ExampleRobolectricTest {
     repository.deleteLayoutById(customId)
     val fetchedDeleted = repository.getLayoutById(customId)
     org.junit.Assert.assertNull("Layout should be deleted from Room", fetchedDeleted)
+    val db = androidx.room.Room.inMemoryDatabaseBuilder(context,com.example.data.local.GamepadDatabase::class.java).build()
+    try {
+      val a=com.example.data.local.LayoutConfigEntity("ABXY",50f,50f,1f,"HALO")
+      val b=a.copy(elementIdString="DPAD")
+      db.layoutDao().replaceConfigs(listOf(a,b))
+      db.layoutDao().replaceConfigs(listOf(a))
+      assertEquals(listOf(a),db.layoutDao().getAllConfigsSync())
+    } finally { db.close() }
   }
 }

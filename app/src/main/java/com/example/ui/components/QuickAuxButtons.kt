@@ -1,9 +1,7 @@
 package com.example.ui.components
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -37,7 +33,6 @@ import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceControl
 import com.example.ui.theme.SurfaceControlRaised
 import com.example.ui.theme.TextSecondary
 import com.example.ui.theme.TextTertiary
@@ -46,11 +41,11 @@ import com.example.ui.theme.TextTertiary
 fun QuickAuxButtons(
     modifier: Modifier = Modifier,
     scale: Float = 1.0f,
-    onSelectPress: () -> Unit = {},
-    onStartPress: () -> Unit = {},
+    onSelectPress: (Boolean) -> Unit = {},
+    onStartPress: (Boolean) -> Unit = {},
     onGuidePress: () -> Unit = {}
 ) {
-    val buttonSize = (38 * scale).dp
+    val buttonSize = (38 * scale).dp.coerceAtLeast(48.dp)
 
     Row(
         modifier = modifier.testTag("aux_buttons_row"),
@@ -73,7 +68,7 @@ fun QuickAuxButtons(
             testTag = "btn_guide",
             sizeDp = (buttonSize.value * 1.15f).dp,
             isJewel = true,
-            onPress = onGuidePress
+            onPress = { if (it) onGuidePress() }
         )
 
         // Start button
@@ -94,9 +89,8 @@ private fun AuxRoundButton(
     testTag: String,
     sizeDp: Dp,
     isJewel: Boolean = false,
-    onPress: () -> Unit = {}
+    onPress: (Boolean) -> Unit = {}
 ) {
-    val view = LocalView.current
     var isPressed by remember { mutableStateOf(false) }
 
     Column(
@@ -119,16 +113,8 @@ private fun AuxRoundButton(
                     shape = CircleShape
                 )
                 .testTag(testTag)
-                .pointerInput(testTag) {
-                    detectTapGestures(
-                        onPress = {
-                            isPressed = true
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onPress()
-                            tryAwaitRelease()
-                            isPressed = false
-                        }
-                    )
+                .controllerButton(label) { down ->
+                    if (isPressed != down) { isPressed=down; onPress(down) }
                 },
             contentAlignment = Alignment.Center
         ) {

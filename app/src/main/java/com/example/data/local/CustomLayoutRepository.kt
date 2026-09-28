@@ -66,7 +66,7 @@ class CustomLayoutRepository(
                 CustomLayoutEntity(
                     id = "preset_fps",
                     name = "FPS Pro Tournament",
-                    description = "Elevated triggers, enlarged sticks, rear paddles P1/P2 for instant crouch & jump",
+                    description = "Elevated triggers and enlarged sticks. Stored rear paddles are unavailable.",
                     isPreset = true,
                     elementCount = ControllerLayoutProfile.fpsLayoutElements().size,
                     elementsJson = CustomLayoutSerializer.serialize(ControllerLayoutProfile.fpsLayoutElements()),
@@ -75,7 +75,7 @@ class CustomLayoutRepository(
                 CustomLayoutEntity(
                     id = "preset_fighting",
                     name = "Arcade Fighter",
-                    description = "Clustered action buttons, rapid turbo button, and oversized directional D-pad",
+                    description = "Clustered action buttons and oversized D-pad. Stored turbo is unavailable.",
                     isPreset = true,
                     elementCount = ControllerLayoutProfile.arcadeFightingLayoutElements().size,
                     elementsJson = CustomLayoutSerializer.serialize(ControllerLayoutProfile.arcadeFightingLayoutElements()),

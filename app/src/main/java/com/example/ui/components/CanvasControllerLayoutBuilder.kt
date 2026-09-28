@@ -1,15 +1,12 @@
 package com.example.ui.components
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +20,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,14 +34,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Gamepad
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.OpenWith
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.SportsEsports
@@ -61,7 +53,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -76,12 +67,9 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -89,23 +77,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.ControllerElementId
 import com.example.data.model.ElementLayoutConfig
-import com.example.data.model.StickStylePreset
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
-import com.example.ui.theme.OnPrimaryBlue
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.PrimaryContainerBlue
 import com.example.ui.theme.StatusError
-import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCanvas
 import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.SurfaceContainerHigh
 import com.example.ui.theme.SurfaceContainerLow
 import com.example.ui.theme.SurfaceContainerLowest
 import com.example.ui.theme.SurfaceControl
@@ -120,8 +103,6 @@ import com.example.ui.theme.XboxRedB
 import com.example.ui.theme.XboxYellowY
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -575,6 +556,7 @@ private fun DraggablePaletteItemChip(
     onDragEnd: () -> Unit,
     onTap: () -> Unit
 ) {
+    val supported = elementId !in setOf(ControllerElementId.PADDLE_P1, ControllerElementId.PADDLE_P2, ControllerElementId.TURBO_BTN)
     var globalTouchPos by remember { mutableStateOf(Offset.Zero) }
 
     Row(
@@ -586,8 +568,9 @@ private fun DraggablePaletteItemChip(
                 if (isAlreadyPlaced) ControlBorderSubtle else ControlBorderGlow,
                 RoundedCornerShape(10.dp)
             )
-            .clickable { onTap() }
+            .clickable(enabled=supported) { onTap() }
             .pointerInput(elementId) {
+                if (!supported) return@pointerInput
                 detectDragGestures(
                     onDragStart = { offset ->
                         globalTouchPos = offset

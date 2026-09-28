@@ -3,6 +3,9 @@ package com.example.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -126,7 +129,8 @@ fun SavedLayoutsManagerDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(16.dp)
                 ) {
                     // Dialog Header
                     Row(
@@ -135,6 +139,7 @@ fun SavedLayoutsManagerDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(
+                            modifier=Modifier.weight(1f),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
@@ -153,15 +158,15 @@ fun SavedLayoutsManagerDialog(
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
-                            Column {
+                            Column(Modifier.weight(1f)) {
                                 Text(
-                                    text = "Controller Layout Profiles",
+                                    text = "Layout profiles",
                                     color = TextPrimary,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "Persisted locally via Room Database • ${savedLayouts.size} saved",
+                                    text = "Saved on this phone • ${savedLayouts.size} saved",
                                     color = TextTertiary,
                                     fontSize = 12.sp
                                 )
@@ -188,10 +193,9 @@ fun SavedLayoutsManagerDialog(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Action Bar: "Save Current Layout As..." button + Search bar
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Button(
                             onClick = {
@@ -251,8 +255,8 @@ fun SavedLayoutsManagerDialog(
                                 }
                             },
                             modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
+                                .fillMaxWidth()
+                                .height(56.dp)
                                 .testTag("search_layouts_input"),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
@@ -280,7 +284,7 @@ fun SavedLayoutsManagerDialog(
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Text(
-                                text = "Save Active Controller Setup to Room DB",
+                                text = "Save controller layout",
                                 color = PrimaryBlue,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
@@ -380,7 +384,7 @@ fun SavedLayoutsManagerDialog(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Save to Database", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text("Save layout", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -393,7 +397,6 @@ fun SavedLayoutsManagerDialog(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(SurfaceContainerLowest),
                             contentAlignment = Alignment.Center
@@ -413,14 +416,13 @@ fun SavedLayoutsManagerDialog(
                             }
                         }
                     } else {
-                        LazyColumn(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
                                 .testTag("saved_layouts_list"),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            items(filteredLayouts, key = { it.id }) { layout ->
+                            filteredLayouts.forEach { layout ->
                                 val isActive = layout.id == activeLayoutId
                                 LayoutCardItem(
                                     layout = layout,
@@ -502,186 +504,27 @@ fun SavedLayoutsManagerDialog(
 
 @Composable
 private fun LayoutCardItem(
-    layout: CustomLayoutEntity,
-    isActive: Boolean,
-    onLoad: () -> Unit,
-    onDuplicate: () -> Unit,
-    onDelete: () -> Unit
+    layout: CustomLayoutEntity, isActive: Boolean,
+    onLoad: () -> Unit, onDuplicate: () -> Unit, onDelete: () -> Unit
 ) {
-    val dateStr = remember(layout.lastModified) {
-        val sdf = SimpleDateFormat("MMM d, yyyy · HH:mm", Locale.getDefault())
-        sdf.format(Date(layout.lastModified))
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .border(
-                1.dp,
-                if (isActive) XboxGreenA else ControlBorderSubtle.copy(alpha = 0.4f),
-                RoundedCornerShape(14.dp)
-            )
-            .testTag("layout_card_${layout.id}"),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isActive) SurfaceCard else SurfaceContainerLowest
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left details
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = layout.name,
-                        color = TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    if (isActive) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(XboxGreenA.copy(alpha = 0.2f))
-                                .border(1.dp, XboxGreenA.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "ACTIVE",
-                                color = XboxGreenA,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                    }
-
-                    if (layout.isPreset) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SurfaceControl)
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "BUILT-IN",
-                                color = TextTertiary,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
+    Card(Modifier.fillMaxWidth().testTag("layout_card_${layout.id}"),
+        colors=CardDefaults.cardColors(containerColor=SurfaceCard),shape=RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+            Text(layout.name,color=TextPrimary,fontSize=15.sp,fontWeight=FontWeight.Bold,
+                maxLines=2,overflow=TextOverflow.Ellipsis)
+            if (layout.description.isNotBlank()) Text(layout.description,color=TextSecondary,fontSize=12.sp,
+                maxLines=2,overflow=TextOverflow.Ellipsis)
+            Text("${layout.elementCount} stored controls" + if (layout.isPreset) " / Built-in" else " / Custom",color=TextTertiary,fontSize=11.sp)
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End,
+                verticalAlignment=Alignment.CenterVertically) {
+                IconButton(onClick=onDuplicate,modifier=Modifier.testTag("duplicate_layout_${layout.id}")) {
+                    Icon(Icons.Default.ContentCopy,contentDescription="Duplicate ${layout.name}",tint=TextSecondary)
                 }
-
-                if (layout.description.isNotBlank()) {
-                    Text(
-                        text = layout.description,
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 2
-                    )
+                IconButton(onClick=onDelete,modifier=Modifier.testTag("delete_layout_${layout.id}")) {
+                    Icon(Icons.Default.Delete,contentDescription="Delete ${layout.name}",tint=StatusError)
                 }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(
-                        text = "${layout.elementCount} controls mapped",
-                        color = PrimaryBlue,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "•",
-                        color = TextTertiary,
-                        fontSize = 11.sp
-                    )
-                    Text(
-                        text = dateStr,
-                        color = TextTertiary,
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Right Action Buttons
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                // Duplicate Button
-                IconButton(
-                    onClick = onDuplicate,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SurfaceControl)
-                        .testTag("duplicate_layout_${layout.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.ContentCopy,
-                        contentDescription = "Duplicate Layout",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Delete Button (Available for all custom layouts, or presets if user wants to remove)
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SurfaceControl)
-                        .testTag("delete_layout_${layout.id}")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete Layout",
-                        tint = StatusError.copy(alpha = 0.8f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Load / Apply Button
-                Button(
-                    onClick = onLoad,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isActive) XboxGreenA else PrimaryContainerBlue
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier
-                        .height(34.dp)
-                        .testTag("load_layout_${layout.id}")
-                ) {
-                    Icon(
-                        imageVector = if (isActive) Icons.Default.Check else Icons.Default.PlayArrow,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isActive) "Active" else "Load",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Button(onClick=onLoad,modifier=Modifier.testTag("load_layout_${layout.id}")) {
+                    Text(if (isActive) "Active" else "Load")
                 }
             }
         }

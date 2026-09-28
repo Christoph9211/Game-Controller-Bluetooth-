@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.RoomDatabase
 import kotlinx.coroutines.flow.Flow
 
@@ -29,6 +30,12 @@ interface LayoutConfigDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConfigs(configs: List<LayoutConfigEntity>)
+
+    @Transaction
+    suspend fun replaceConfigs(configs: List<LayoutConfigEntity>) {
+        clearAll()
+        insertConfigs(configs)
+    }
 
     @Query("DELETE FROM layout_configs")
     suspend fun clearAll()

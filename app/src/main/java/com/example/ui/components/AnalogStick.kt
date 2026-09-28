@@ -1,13 +1,10 @@
 package com.example.ui.components
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -15,7 +12,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -28,15 +24,11 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.StickStylePreset
 import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
@@ -47,12 +39,7 @@ import com.example.ui.theme.SurfaceContainerLowest
 import com.example.ui.theme.SurfaceControl
 import com.example.ui.theme.SurfaceControlRaised
 import com.example.ui.theme.SurfaceDefault
-import com.example.ui.theme.TextTertiary
-import kotlin.math.atan2
-import kotlin.math.cos
 import kotlin.math.roundToInt
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 @Composable
 fun AnalogStick(
@@ -61,9 +48,8 @@ fun AnalogStick(
     label: String = "Left Stick",
     stylePreset: StickStylePreset = StickStylePreset.HALO,
     onMove: (x: Float, y: Float) -> Unit = { _, _ -> },
-    onStickClick: () -> Unit = {}
+    onStickClick: (Boolean) -> Unit = {}
 ) {
-    val view = LocalView.current
     val density = LocalDensity.current
     val sizePx = with(density) { sizeDp.toPx() }
     val maxRadiusPx = sizePx / 2.3f
@@ -118,46 +104,12 @@ fun AnalogStick(
                     )
                 }
             }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isTouching = true
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        val center = Offset(sizePx / 2f, sizePx / 2f)
-                        val delta = offset - center
-                        val distance = sqrt(delta.x * delta.x + delta.y * delta.y)
-                        val clampedDist = distance.coerceAtMost(maxRadiusPx)
-                        val angle = atan2(delta.y, delta.x)
-                        val x = cos(angle) * clampedDist
-                        val y = sin(angle) * clampedDist
-                        dragOffsetPx = Offset(x, y)
-                        onMove(x / maxRadiusPx, y / maxRadiusPx)
-                    },
-                    onDragEnd = {
-                        isTouching = false
-                        dragOffsetPx = Offset.Zero
-                        onMove(0f, 0f)
-                    },
-                    onDragCancel = {
-                        isTouching = false
-                        dragOffsetPx = Offset.Zero
-                        onMove(0f, 0f)
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val newOffset = dragOffsetPx + dragAmount
-                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
-                        if (distance <= maxRadiusPx) {
-                            dragOffsetPx = newOffset
-                        } else {
-                            val angle = atan2(newOffset.y, newOffset.x)
-                            dragOffsetPx = Offset(cos(angle) * maxRadiusPx, sin(angle) * maxRadiusPx)
-                        }
-                        val normalizedX = (dragOffsetPx.x / maxRadiusPx).coerceIn(-1f, 1f)
-                        val normalizedY = (dragOffsetPx.y / maxRadiusPx).coerceIn(-1f, 1f)
-                        onMove(normalizedX, normalizedY)
-                    }
-                )
+            .controllerGesture(label) { position, _ ->
+                isTouching=position != null
+                val delta=position?.minus(Offset(sizePx/2f,sizePx/2f)) ?: Offset.Zero
+                val distance=delta.getDistance()
+                dragOffsetPx=if (distance>maxRadiusPx) delta*(maxRadiusPx/distance) else delta
+                onMove(dragOffsetPx.x/maxRadiusPx,dragOffsetPx.y/maxRadiusPx)
             },
         contentAlignment = Alignment.Center
     ) {
@@ -194,14 +146,7 @@ fun AnalogStick(
                     color = if (isTouching) ControlBorderGlow else ControlBorderSubtle,
                     shape = CircleShape
                 )
-                .pointerInput(label) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onStickClick()
-                        }
-                    )
-                },
+                ,
             contentAlignment = Alignment.Center
         ) {
             // Style-specific inner cap
@@ -255,5 +200,14 @@ fun AnalogStick(
                 }
             }
         }
+        var clicked by remember { mutableStateOf(false) }
+        Box(Modifier.align(Alignment.BottomEnd).size(48.dp)
+            .clip(CircleShape).background(SurfaceControlRaised)
+            .controllerButton(if (label.contains("Left")) "L3" else "R3") { down ->
+                if (clicked != down) { clicked=down; onStickClick(down) }
+            }, contentAlignment=Alignment.Center) {
+            Text(if (label.contains("Left")) "L3" else "R3", color=ControlBorderGlow)
+        }
+
     }
 }

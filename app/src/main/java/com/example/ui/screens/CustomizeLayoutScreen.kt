@@ -38,9 +38,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SportsEsports
@@ -58,7 +56,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,14 +66,12 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,12 +86,10 @@ import com.example.ui.components.DPadView
 import com.example.ui.components.QuickAuxButtons
 import com.example.ui.components.SavedLayoutsManagerDialog
 import com.example.ui.components.TriggerBumperGroup
-import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
 import com.example.ui.theme.PrimaryBlue
 import com.example.ui.theme.PrimaryContainerBlue
-import com.example.ui.theme.StatusSuccess
 import com.example.ui.theme.SurfaceCanvas
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.SurfaceContainerLow
@@ -1030,26 +1023,24 @@ private fun ButtonMappingTab(viewModel: GamepadViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Button Remapping & Macro Assignments",
+            text = "Fixed controller mapping",
             color = TextPrimary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Remap digital and analog controls to custom XInput or HID output triggers.",
+            text = "HID mappings are fixed. In-game actions depend on the receiving game; macros and remapping are unavailable.",
             color = TextSecondary,
             fontSize = 13.sp
         )
 
         val mappings = listOf(
-            "Button A" to "Primary Action (Jump / Select)",
-            "Button B" to "Secondary Action (Cancel / Crouch)",
-            "Button X" to "Tertiary Action (Reload / Interact)",
-            "Button Y" to "Quaternary Action (Switch Weapon)",
-            "Left Bumper (LB)" to "Left Tactical Equipment",
-            "Right Bumper (RB)" to "Right Lethal Equipment",
-            "Left Trigger (LT)" to "Aim Down Sights (ADS)",
-            "Right Trigger (RT)" to "Primary Fire (Full Auto)"
+            "A / B / X / Y" to "HID face buttons",
+            "LB / RB" to "L1 / R1",
+            "LT / RT" to "Brake / Gas (0-255)",
+            "Select / Start" to "Select / Start",
+            "L3 / R3" to "Stick clicks",
+            "D-pad" to "Eight-way hat"
         )
 
         mappings.forEach { (btn, assignment) ->
@@ -1072,59 +1063,12 @@ private fun ButtonMappingTab(viewModel: GamepadViewModel) {
 
 @Composable
 private fun SticksCalibrationTab(viewModel: GamepadViewModel) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(
-            text = "Thumbstick Deadzones & Calibration",
-            color = TextPrimary,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "Hardware zero-drift calibration, linear response curve, and outer threshold smoothing.",
-            color = TextSecondary,
-            fontSize = 13.sp
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Left Stick Card
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceCard)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Left Stick Calibration", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Deadzone: 5%", color = TextSecondary, fontSize = 12.sp)
-                Text("Outer Threshold: 98%", color = TextSecondary, fontSize = 12.sp)
-                Text("Response Curve: Linear 1:1", color = XboxGreenA, fontSize = 12.sp)
-            }
-
-            // Right Stick Card
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceCard)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Right Stick Calibration", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Deadzone: 3% (Precision Aim)", color = TextSecondary, fontSize = 12.sp)
-                Text("Outer Threshold: 100%", color = TextSecondary, fontSize = 12.sp)
-                Text("Response Curve: Dynamic S-Curve", color = XboxBlueX, fontSize = 12.sp)
-            }
-        }
+    val settings by viewModel.quickSettings.collectAsState()
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement=Arrangement.spacedBy(16.dp)) {
+        Text("Radial stick deadzone",color=TextPrimary,fontSize=18.sp)
+        Text("${settings.deadzonePct}% - applied to both touch sticks before encoding. Hardware calibration is unavailable.",color=TextSecondary)
+        Slider(value=settings.deadzonePct.toFloat(),onValueChange={ viewModel.setDeadzone(it.toInt()) },valueRange=0f..25f)
     }
 }
 
@@ -1167,9 +1111,10 @@ private fun AdvancedSettingsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Anti-Deadzone Smoothing", color = TextPrimary, fontSize = 13.sp)
+                Text("Smoothing (unavailable)", color = TextPrimary, fontSize = 13.sp)
                 Switch(
-                    checked = true,
+                    checked = false,
+                    enabled = false,
                     onCheckedChange = {},
                     colors = SwitchDefaults.colors(checkedThumbColor = PrimaryContainerBlue)
                 )
@@ -1180,9 +1125,10 @@ private fun AdvancedSettingsDialog(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Invert Y Axis", color = TextPrimary, fontSize = 13.sp)
+                Text("Invert Y (unavailable)", color = TextPrimary, fontSize = 13.sp)
                 Switch(
                     checked = false,
+                    enabled = false,
                     onCheckedChange = {},
                     colors = SwitchDefaults.colors(checkedThumbColor = PrimaryContainerBlue)
                 )

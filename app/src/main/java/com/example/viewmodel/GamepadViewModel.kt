@@ -1,6 +1,8 @@
 package com.example.viewmodel
 
 import android.app.Application
+import com.example.bluetooth.BluetoothConnection
+import com.example.bluetooth.ControllerInput
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
@@ -9,11 +11,8 @@ import com.example.data.local.CustomLayoutRepository
 import com.example.data.local.CustomLayoutSerializer
 import com.example.data.local.GamepadDatabase
 import com.example.data.local.LayoutConfigEntity
-import com.example.data.local.PairedDeviceEntity
 import com.example.data.model.ControllerElementId
 import com.example.data.model.ControllerLayoutProfile
-import com.example.data.model.DeviceTarget
-import com.example.data.model.DeviceType
 import com.example.data.model.ElementLayoutConfig
 import com.example.data.model.GamepadScreen
 import com.example.data.model.QuickActionsSettings
@@ -31,10 +30,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
-import kotlin.math.abs
-import kotlin.math.roundToInt
 import kotlin.math.sqrt
-import kotlin.random.Random
 
 class GamepadViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -48,7 +44,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         application,
         GamepadDatabase::class.java,
         "gamepad_db"
-    ).fallbackToDestructiveMigration().build()
+    ).build()
 
     // Room Repository for Saved Layout Configurations
     val customLayoutRepository = CustomLayoutRepository(db.customLayoutDao())
@@ -101,25 +97,6 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     private val _quickSettings = MutableStateFlow(QuickActionsSettings())
     val quickSettings: StateFlow<QuickActionsSettings> = _quickSettings.asStateFlow()
 
-    // Device Discovery Scanner state
-    private val _isScanning = MutableStateFlow(true)
-    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
-
-    private val _connectingDeviceId = MutableStateFlow<String?>(null)
-    val connectingDeviceId: StateFlow<String?> = _connectingDeviceId.asStateFlow()
-
-    private val _selectedDeviceId = MutableStateFlow<String?>("pad_xbox_1")
-    val selectedDeviceId: StateFlow<String?> = _selectedDeviceId.asStateFlow()
-
-    private val _deviceFilter = MutableStateFlow("ALL") // "ALL", "GAMEPADS", "HOSTS"
-    val deviceFilter: StateFlow<String> = _deviceFilter.asStateFlow()
-
-    private val _discoveredDevices = MutableStateFlow<List<DeviceTarget>>(emptyList())
-    val discoveredDevices: StateFlow<List<DeviceTarget>> = _discoveredDevices.asStateFlow()
-
-    private val _pairedHosts = MutableStateFlow<List<DeviceTarget>>(emptyList())
-    val pairedHosts: StateFlow<List<DeviceTarget>> = _pairedHosts.asStateFlow()
-
     // Toast message for layout saved or status
     private val _toastMessage = MutableStateFlow<String?>(null)
     val toastMessage: StateFlow<String?> = _toastMessage.asStateFlow()
@@ -140,145 +117,82 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     private val _lastPressedButton = MutableStateFlow<String?>(null)
     val lastPressedButton: StateFlow<String?> = _lastPressedButton.asStateFlow()
 
-    // Real-Time RSSI & Latency Monitor Dashboard States
-    private val _rssiHistory = MutableStateFlow<List<Int>>(
-        listOf(-42, -43, -41, -44, -42, -40, -43, -42, -41, -43, -42, -41, -44, -43, -42)
-    )
-    val rssiHistory: StateFlow<List<Int>> = _rssiHistory.asStateFlow()
-
-    private val _latencyHistory = MutableStateFlow<List<Float>>(
-        listOf(3.6f, 3.8f, 3.4f, 4.1f, 3.7f, 3.5f, 3.9f, 3.6f, 3.4f, 3.8f, 3.7f, 3.9f, 3.5f, 3.8f, 3.6f)
-    )
-    val latencyHistory: StateFlow<List<Float>> = _latencyHistory.asStateFlow()
-
-    private val _selectedMonitorGamepadId = MutableStateFlow("pad_xbox_1")
-    val selectedMonitorGamepadId: StateFlow<String> = _selectedMonitorGamepadId.asStateFlow()
-
-    private val _isPingBurstRunning = MutableStateFlow(false)
-    val isPingBurstRunning: StateFlow<Boolean> = _isPingBurstRunning.asStateFlow()
-
-    private val _pingBurstProgress = MutableStateFlow(0f)
-    val pingBurstProgress: StateFlow<Float> = _pingBurstProgress.asStateFlow()
-
-    private val _pingBurstResult = MutableStateFlow<com.example.data.model.PingBurstResult?>(null)
-    val pingBurstResult: StateFlow<com.example.data.model.PingBurstResult?> = _pingBurstResult.asStateFlow()
+    val bluetooth = BluetoothConnection(application)
+    val connection = bluetooth.state
+    private val input = ControllerInput()
+    private val _inputGeneration = MutableStateFlow(0)
+    val inputGeneration = _inputGeneration.asStateFlow()
+    private var foreground = false
+    private var lastPulse = android.os.SystemClock.uptimeMillis()
 
     init {
         initInitialData()
-        startTelemetryLoop()
+        viewModelScope.launch {
+            var previousHost: String? = null
+            while (true) {
+                val now=android.os.SystemClock.uptimeMillis()
+                if (foreground && now-lastPulse>750) releaseControls()
+                lastPulse=now
+                if (foreground) bluetooth.service?.pulse()
+                bluetooth.refresh()
+                val state = connection.value
+                if (previousHost != state.hostAddress) releaseControls()
+                previousHost = state.hostAddress
+                bluetooth.service?.setPeriod(_quickSettings.value.sendIntervalMs)
+                _telemetry.update { it.copy(linkState=state.status,
+                    hostName=state.hosts.firstOrNull { host -> host.address==state.hostAddress }?.name ?: "Not connected") }
+                delay(100)
+            }
+        }
     }
 
-    private fun initInitialData() {
-        val initialDiscovered = listOf(
-            DeviceTarget(
-                id = "pad_xbox_1",
-                name = "Xbox Wireless Controller",
-                subtitle = "Bluetooth LE HID • Carbon Black",
-                type = DeviceType.GAMEPAD,
-                connectionType = "BLE HID / XInput",
-                rssiDbm = -46,
-                isPaired = false,
-                isConnected = false,
-                streamRate = "Ready to Pair",
-                lastSeenOrConnected = "Active Beacon (Signal Strong)",
-                batteryPct = 88,
-                macAddress = "4C:0B:BE:91:2E:7A",
-                protocol = "BLE HID / XInput"
-            ),
-            DeviceTarget(
-                id = "pad_dualsense_1",
-                name = "DualSense Wireless Controller",
-                subtitle = "PlayStation HID • Haptics & Gyro Supported",
-                type = DeviceType.GAMEPAD,
-                connectionType = "Direct Bluetooth HID",
-                rssiDbm = -52,
-                isPaired = false,
-                isConnected = false,
-                streamRate = "Ready to Pair",
-                lastSeenOrConnected = "Active Beacon",
-                batteryPct = 74,
-                macAddress = "00:1B:DC:04:78:E2",
-                protocol = "PlayStation Bluetooth HID"
-            ),
-            DeviceTarget(
-                id = "pad_8bitdo_1",
-                name = "8BitDo Ultimate Bluetooth",
-                subtitle = "Hall Effect Sticks • 1000Hz Polling",
-                type = DeviceType.GAMEPAD,
-                connectionType = "Bluetooth 5.0 Low Latency",
-                rssiDbm = -48,
-                isPaired = false,
-                isConnected = false,
-                streamRate = "Ready to Pair",
-                lastSeenOrConnected = "Discovered Just Now",
-                batteryPct = 84,
-                macAddress = "E4:5F:01:8A:2C:4D",
-                protocol = "Bluetooth 5.0 LL"
-            ),
-            DeviceTarget(
-                id = "pad_switch_1",
-                name = "Nintendo Switch Pro Controller",
-                subtitle = "Switch HID • Motion Sensors & HD Rumble",
-                type = DeviceType.GAMEPAD,
-                connectionType = "Switch Bluetooth HID",
-                rssiDbm = -64,
-                isPaired = false,
-                isConnected = false,
-                streamRate = "Ready to Pair",
-                lastSeenOrConnected = "Discovered 1m ago",
-                batteryPct = 95,
-                macAddress = "98:B6:E9:12:F4:30",
-                protocol = "Nintendo HID Protocol"
-            ),
-            DeviceTarget(
-                id = "pad_razer_1",
-                name = "Razer Kishi V2 Pro",
-                subtitle = "Mobile Gamepad • Microswitches & Analog Hall",
-                type = DeviceType.GAMEPAD,
-                connectionType = "Direct BLE Gamepad",
-                rssiDbm = -39,
-                isPaired = false,
-                isConnected = false,
-                streamRate = "Ready to Pair",
-                lastSeenOrConnected = "Discovered Just Now",
-                batteryPct = 100,
-                macAddress = "2C:F0:5D:87:11:AB",
-                protocol = "Direct BLE Gamepad"
-            ),
-            DeviceTarget(
-                id = "host_1",
-                name = "Custom Rig (RTX 4090)",
-                subtitle = "Windows Bridge • 125 Hz Stream",
-                type = DeviceType.PC,
-                connectionType = "Windows Bridge · Xbox",
-                rssiDbm = -42,
-                isPaired = true,
-                isConnected = true,
-                streamRate = "125 Hz Stream",
-                lastSeenOrConnected = "Active Now (Current Session)",
-                batteryPct = null,
-                macAddress = "94:E6:F7:2B:90:1C",
-                protocol = "Windows Bridge HID"
-            ),
-            DeviceTarget(
-                id = "host_4",
-                name = "Steam Deck OLED (Docked)",
-                subtitle = "Steam Input Target • -74 dBm",
-                type = DeviceType.STEAM_DECK,
-                connectionType = "Direct Bluetooth HID",
-                rssiDbm = -74,
-                isPaired = true,
-                isConnected = false,
-                streamRate = "Standby",
-                lastSeenOrConnected = "Oct 18, 2024 · 8:30 PM",
-                batteryPct = 68,
-                macAddress = "B0:D5:9D:6C:3E:91",
-                protocol = "Steam Remote HID"
-            )
-        )
-        _discoveredDevices.value = initialDiscovered
-        _pairedHosts.value = initialDiscovered.filter { it.isPaired }
+    fun setForeground(active: Boolean) {
+        foreground=active
+        lastPulse=android.os.SystemClock.uptimeMillis()
+        if (!active) releaseControls()
+        bluetooth.refresh()
+    }
+    fun releaseControls() {
+        input.reset()
+        _leftStickPos.value=0f to 0f; _rightStickPos.value=0f to 0f
+        _ltPressure.value=0f; _rtPressure.value=0f; _lastPressedButton.value=null
+        leftStickPrevDist=0f; rightStickPrevDist=0f
+        _telemetry.update { it.copy(ltPressure=0,rtPressure=0) }
+        _inputGeneration.value++
+        bluetooth.service?.release()
+    }
+    private fun acceptsInput(): Boolean {
+        if (!foreground || _currentScreen.value!=GamepadScreen.CONTROLLER ||
+            _isQuickDrawerOpen.value || _isSavedLayoutsManagerOpen.value) return false
+        if (android.os.SystemClock.uptimeMillis()-lastPulse>750 ||
+            bluetooth.service?.hostAddress()!=connection.value.hostAddress) {
+            releaseControls()
+            return false
+        }
+        return true
+    }
+    private fun submitInput() {
+        bluetooth.service?.submit(input.report(_quickSettings.value.deadzonePct), null)
+    }
+    fun onButtonChanged(name: String, down: Boolean) {
+        if (!acceptsInput()) return
+        input.button(name,down)
+        if (down) onButtonPressed(name) else if (_lastPressedButton.value==name) _lastPressedButton.value=null
+        submitInput()
+    }
+    fun onHatChanged(hat: Int) {
+        if (!acceptsInput()) return
+        if (hat != 8 && hat != input.hat) onButtonPressed("D-pad")
+        input.hat=if (hat in 0..7) hat else 8
+        submitInput()
+    }
+    fun stopBluetooth() { releaseControls(); bluetooth.stop() }
+    fun connectToDevice(address: String) { releaseControls(); bluetooth.connect(address) }
+    fun disconnectActiveDevice() { releaseControls(); bluetooth.service?.disconnect() }
+    fun setHostMode(pc: Boolean) { releaseControls(); bluetooth.setMode(pc) }
+    override fun onCleared() { releaseControls(); bluetooth.stop(); db.close(); super.onCleared() }
 
+    private fun initInitialData() {
         // Seed initial Room layouts if database is empty
         viewModelScope.launch {
             customLayoutRepository.seedInitialPresetsIfEmpty()
@@ -309,80 +223,16 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                     isCustom = true,
                     elements = map
                 )
+                releaseControls()
                 _activeLayout.value = loadedProfile
                 _editingLayout.value = loadedProfile
             }
         }
     }
 
-    private fun startTelemetryLoop() {
-        viewModelScope.launch {
-            while (true) {
-                delay(1200)
-                // Ping jitter simulation
-                val jitter = (3.2f + Random.nextFloat() * 0.9f)
-                val roundedPing = (jitter * 10).toInt() / 10f
-                val rfDrift = Random.nextInt(-2, 3)
-
-                _telemetry.update { old ->
-                    val newDbm = (old.rfDbm + rfDrift).coerceIn(-76, -34)
-                    val integrity = ((100 - (abs(newDbm) - 30) * 1.1f).toInt()).coerceIn(60, 99)
-                    old.copy(
-                        roundtripMs = roundedPing,
-                        jitterMs = (Random.nextFloat() * 0.35f),
-                        rfDbm = newDbm,
-                        signalIntegrity = integrity,
-                        totalPackets = old.totalPackets + Random.nextInt(240, 260)
-                    )
-                }
-
-                // Update RSSI and Latency history buffers
-                val curDbm = _telemetry.value.rfDbm
-                _rssiHistory.update { oldList ->
-                    (oldList + curDbm).takeLast(25)
-                }
-                _latencyHistory.update { oldList ->
-                    (oldList + roundedPing).takeLast(25)
-                }
-            }
-        }
-    }
-
-    fun selectMonitorGamepad(id: String) {
-        _selectedMonitorGamepadId.value = id
-        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-    }
-
-    fun runPingBurstTest(stepDelayMs: Long = 60L) {
-        if (_isPingBurstRunning.value) return
-        viewModelScope.launch {
-            _isPingBurstRunning.value = true
-            _pingBurstProgress.value = 0f
-            for (step in 1..20) {
-                if (stepDelayMs > 0) delay(stepDelayMs)
-                _pingBurstProgress.value = step / 20f
-            }
-            val minLat = 2.1f + Random.nextFloat() * 0.4f
-            val avgLat = 3.3f + Random.nextFloat() * 0.4f
-            val maxLat = 4.5f + Random.nextFloat() * 0.6f
-            _pingBurstResult.value = com.example.data.model.PingBurstResult(
-                packetCount = 100,
-                minLatencyMs = (minLat * 10).roundToInt() / 10f,
-                avgLatencyMs = (avgLat * 10).roundToInt() / 10f,
-                maxLatencyMs = (maxLat * 10).roundToInt() / 10f,
-                packetLossPct = 0.0f,
-                jitterMs = 0.26f,
-                qualityGrade = "EXCELLENT",
-                timestamp = "Just now"
-            )
-            _isPingBurstRunning.value = false
-            hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "PingBurstComplete")
-            showToast("Ping burst complete: 100/100 packets delivered (0.00% packet loss)")
-        }
-    }
-
     // Navigation functions
     fun navigateTo(screen: GamepadScreen) {
+        releaseControls()
         if (screen == GamepadScreen.CUSTOMIZE_LAYOUT) {
             // Sync editing layout with active layout when opening editor
             _editingLayout.value = _activeLayout.value
@@ -392,6 +242,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun openQuickDrawer() {
+        releaseControls()
         _isQuickDrawerOpen.value = true
     }
 
@@ -446,7 +297,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     fun toggleTestMode() {
         _isTestMode.value = !_isTestMode.value
         hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-        showToast(if (_isTestMode.value) "Live Test Mode: test controls directly!" else "Blueprint Editor Mode")
+        showToast(if (_isTestMode.value) "Local layout preview: no Bluetooth input is sent" else "Blueprint Editor Mode")
     }
 
     fun addElement(id: ControllerElementId, xPercent: Float, yPercent: Float, scale: Float = 1.0f) {
@@ -482,6 +333,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun applyLayoutPreset(presetKey: String) {
+        releaseControls()
         val newElements = when (presetKey) {
             "FPS" -> ControllerLayoutProfile.fpsLayoutElements()
             "FIGHTING" -> ControllerLayoutProfile.arcadeFightingLayoutElements()
@@ -505,12 +357,14 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun resetLayoutToDefault() {
+        releaseControls()
         val defaultProfile = ControllerLayoutProfile()
         _editingLayout.value = defaultProfile
         showToast("Controls restored to default ergonomics")
     }
 
     fun openSavedLayoutsManager() {
+        releaseControls()
         _isSavedLayoutsManagerOpen.value = true
         hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
     }
@@ -538,6 +392,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
             customLayoutRepository.saveLayout(entity)
             _activeSavedLayoutId.value = id
             val newProfile = currentEdit.copy(id = id, name = trimmedName, isCustom = true)
+            releaseControls()
             _activeLayout.value = newProfile
             _editingLayout.value = newProfile
 
@@ -551,7 +406,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                     stylePresetString = it.stylePreset.name
                 )
             }
-            db.layoutDao().insertConfigs(entities)
+            db.layoutDao().replaceConfigs(entities)
 
             showToast("Saved \"$trimmedName\" to Room database")
             hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "Save")
@@ -560,6 +415,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
 
     fun loadSavedLayout(layoutId: String): kotlinx.coroutines.Job = viewModelScope.launch {
         val entity = customLayoutRepository.getLayoutById(layoutId)
+        releaseControls()
         if (entity != null) {
             val elements = CustomLayoutSerializer.deserialize(entity.elementsJson)
             val profile = ControllerLayoutProfile(
@@ -582,7 +438,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                     stylePresetString = it.stylePreset.name
                 )
             }
-            db.layoutDao().insertConfigs(entities)
+            db.layoutDao().replaceConfigs(entities)
 
             showToast("Loaded \"${entity.name}\" layout")
             hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "Load")
@@ -658,6 +514,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
             _activeSavedLayoutId.value = layoutId
 
             val profile = currentEdit.copy(id = layoutId, name = layoutName, isCustom = true)
+            releaseControls()
             _activeLayout.value = profile
             _editingLayout.value = profile
 
@@ -671,7 +528,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
                     stylePresetString = it.stylePreset.name
                 )
             }
-            db.layoutDao().insertConfigs(entities)
+            db.layoutDao().replaceConfigs(entities)
 
             showToast("Saved \"$layoutName\" to Room database")
             hapticManager.performButtonPress(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength, "SaveLayout")
@@ -686,6 +543,8 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
 
     // Input handlers
     fun onLeftStickMoved(x: Float, y: Float) {
+        if (!acceptsInput()) return
+        input.lx=x; input.ly=y; submitInput()
         _leftStickPos.value = Pair(x, y)
         val dist = sqrt(x * x + y * y)
         val settings = _quickSettings.value
@@ -698,6 +557,8 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onRightStickMoved(x: Float, y: Float) {
+        if (!acceptsInput()) return
+        input.rx=x; input.ry=y; submitInput()
         _rightStickPos.value = Pair(x, y)
         val dist = sqrt(x * x + y * y)
         val settings = _quickSettings.value
@@ -710,6 +571,9 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun onTriggerChanged(isLeft: Boolean, pressure: Float) {
+        if (!acceptsInput()) return
+        if (isLeft) input.lt=pressure else input.rt=pressure
+        submitInput()
         val prevPressure = if (isLeft) _ltPressure.value else _rtPressure.value
         val triggerName = if (isLeft) "LT" else "RT"
         val settings = _quickSettings.value
@@ -732,7 +596,7 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun onButtonPressed(buttonName: String) {
+    private fun onButtonPressed(buttonName: String) {
         _lastPressedButton.value = buttonName
         val settings = _quickSettings.value
         if (buttonName.startsWith("LB") || buttonName.startsWith("RB")) {
@@ -785,115 +649,6 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
     }
 
-    // Device Discovery Scanner functions
-    fun toggleDiscoveryScan() {
-        _isScanning.value = !_isScanning.value
-        if (_isScanning.value) {
-            showToast("Searching for discoverable Bluetooth targets...")
-        } else {
-            showToast("Discovery scanning paused")
-        }
-    }
-
-    fun selectDevice(targetId: String?) {
-        _selectedDeviceId.value = targetId
-        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-    }
-
-    fun setDeviceFilter(filter: String) {
-        _deviceFilter.value = filter
-        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-    }
-
-    fun initiatePairAndConnect(targetId: String) {
-        val target = _discoveredDevices.value.find { it.id == targetId } ?: return
-        if (target.isConnected) {
-            disconnectActiveDevice()
-            return
-        }
-
-        viewModelScope.launch {
-            _connectingDeviceId.value = targetId
-            hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-            showToast("Pairing with ${target.name}...")
-
-            // Realistic connection handshake delay
-            kotlinx.coroutines.delay(650)
-
-            _discoveredDevices.update { list ->
-                list.map { item ->
-                    if (item.id == targetId) {
-                        item.copy(isPaired = true, isConnected = true, streamRate = "Active HID Link")
-                    } else {
-                        item.copy(isConnected = false)
-                    }
-                }
-            }
-
-            _pairedHosts.update { list ->
-                val existing = list.any { it.id == targetId }
-                val updatedTarget = _discoveredDevices.value.first { it.id == targetId }
-                if (existing) {
-                    list.map { if (it.id == targetId) updatedTarget else it.copy(isConnected = false) }
-                } else {
-                    list.map { it.copy(isConnected = false) } + updatedTarget
-                }
-            }
-
-            _telemetry.update {
-                it.copy(
-                    hostName = target.name,
-                    linkState = "HID Active",
-                    rfDbm = target.rssiDbm
-                )
-            }
-
-            // Persist to Room
-            db.deviceDao().insertDevice(
-                com.example.data.local.PairedDeviceEntity(
-                    id = target.id,
-                    name = target.name,
-                    subtitle = target.subtitle,
-                    type = target.type.name,
-                    connectionType = target.connectionType,
-                    rssiDbm = target.rssiDbm,
-                    isPaired = true,
-                    isConnected = true,
-                    streamRate = target.streamRate,
-                    lastSeenOrConnected = "Active Now"
-                )
-            )
-
-            _connectingDeviceId.value = null
-            hapticManager.performMotorRumble(
-                enabled = _quickSettings.value.hapticsEnabled,
-                channel = com.example.util.HapticMotorChannel.DUAL_STEREO,
-                strength = _quickSettings.value.hapticStrength,
-                durationMs = 80L
-            )
-            showToast("Connected: ${target.name} paired successfully!")
-        }
-    }
-
-    fun connectToDevice(targetId: String) {
-        initiatePairAndConnect(targetId)
-    }
-
-    fun disconnectActiveDevice() {
-        _discoveredDevices.update { list ->
-            list.map { it.copy(isConnected = false) }
-        }
-        _pairedHosts.update { list ->
-            list.map { it.copy(isConnected = false) }
-        }
-        _telemetry.update { it.copy(linkState = "Disconnected") }
-        hapticManager.performUiTick(_quickSettings.value.hapticsEnabled, _quickSettings.value.hapticStrength)
-        showToast("Disconnected from device")
-        viewModelScope.launch {
-            db.deviceDao().disconnectAll()
-        }
-    }
-
     // Quick Settings
     fun updateProfile(profileName: String) {
         _quickSettings.update { it.copy(currentProfile = profileName) }
@@ -910,24 +665,16 @@ class GamepadViewModel(application: Application) : AndroidViewModel(application)
         _quickSettings.update { it.copy(hapticStrength = strength) }
     }
 
-    fun toggleGyro() {
-        _quickSettings.update { it.copy(gyroAimEnabled = !it.gyroAimEnabled) }
-        showToast("Gyro Aim: ${if (_quickSettings.value.gyroAimEnabled) "Enabled" else "Disabled"}")
-    }
-
-    fun toggleTurbo() {
-        _quickSettings.update { it.copy(turboEnabled = !it.turboEnabled) }
-        showToast("Turbo Mode: ${if (_quickSettings.value.turboEnabled) "Active" else "Off"}")
-    }
-
     fun setDeadzone(pct: Int) {
-        _quickSettings.update { it.copy(deadzonePct = pct) }
+        releaseControls()
+        _quickSettings.update { it.copy(deadzonePct = pct.coerceIn(0,25)) }
     }
 
-    fun setPollingRate(hz: Int) {
-        _quickSettings.update { it.copy(pollRateHz = hz) }
-        _telemetry.update { it.copy(samplingHz = hz) }
-        showToast("Polling rate set to ${hz}Hz")
+    fun setSendInterval(ms: Int) {
+        require(ms in listOf(4,8,16))
+        releaseControls()
+        _quickSettings.update { it.copy(sendIntervalMs=ms) }
+        bluetooth.service?.setPeriod(ms)
     }
 
     fun showToast(msg: String) {

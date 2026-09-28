@@ -1,18 +1,13 @@
 package com.example.ui.components
 
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -22,8 +17,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -42,9 +35,9 @@ import com.example.ui.theme.XboxYellowY
 fun ABXYCluster(
     modifier: Modifier = Modifier,
     sizeDp: Dp = 120.dp,
-    onButtonPress: (String) -> Unit = {}
+    onButtonChange: (String, Boolean) -> Unit = { _, _ -> }
 ) {
-    val buttonSize = sizeDp * 0.35f
+    val buttonSize = (sizeDp * 0.35f).coerceAtLeast(48.dp)
 
     Box(
         modifier = modifier
@@ -60,7 +53,7 @@ fun ABXYCluster(
                 .align(Alignment.TopCenter)
                 .testTag("abxy_button_y"),
             sizeDp = buttonSize,
-            onPress = { onButtonPress("Y") }
+            onPress = { onButtonChange("Y", it) }
         )
 
         // X button (Left - Electric Blue)
@@ -71,7 +64,7 @@ fun ABXYCluster(
                 .align(Alignment.CenterStart)
                 .testTag("abxy_button_x"),
             sizeDp = buttonSize,
-            onPress = { onButtonPress("X") }
+            onPress = { onButtonChange("X", it) }
         )
 
         // B button (Right - Scarlet Red)
@@ -82,7 +75,7 @@ fun ABXYCluster(
                 .align(Alignment.CenterEnd)
                 .testTag("abxy_button_b"),
             sizeDp = buttonSize,
-            onPress = { onButtonPress("B") }
+            onPress = { onButtonChange("B", it) }
         )
 
         // A button (Bottom - Emerald Green)
@@ -93,7 +86,7 @@ fun ABXYCluster(
                 .align(Alignment.BottomCenter)
                 .testTag("abxy_button_a"),
             sizeDp = buttonSize,
-            onPress = { onButtonPress("A") }
+            onPress = { onButtonChange("A", it) }
         )
     }
 }
@@ -104,11 +97,9 @@ private fun ActionPodButton(
     accentColor: Color,
     modifier: Modifier = Modifier,
     sizeDp: Dp = 42.dp,
-    onPress: () -> Unit = {}
+    onPress: (Boolean) -> Unit = {}
 ) {
-    val view = LocalView.current
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    var isPressed by remember { androidx.compose.runtime.mutableStateOf(false) }
 
     val scale = if (isPressed) 0.92f else 1.0f
 
@@ -137,13 +128,8 @@ private fun ActionPodButton(
                 color = if (isPressed) accentColor else ControlBorderSubtle.copy(alpha = 0.6f),
                 shape = CircleShape
             )
-            .pointerInput(letter) {
-                detectTapGestures(
-                    onPress = {
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        onPress()
-                    }
-                )
+            .controllerButton(letter) { down ->
+                if (isPressed != down) { isPressed=down; onPress(down) }
             },
         contentAlignment = Alignment.Center
     ) {

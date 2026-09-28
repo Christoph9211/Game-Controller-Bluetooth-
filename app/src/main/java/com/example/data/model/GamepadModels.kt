@@ -8,9 +8,9 @@ enum class ControllerElementId(val displayName: String, val category: String) {
     RT_RB("RT / RB", "Bumpers & Triggers"),
     RIGHT_STICK("Right Stick", "Analog Stick"),
     ABXY("ABXY Cluster", "Action Buttons"),
-    PADDLE_P1("Paddle P1", "Rear Paddles"),
-    PADDLE_P2("Paddle P2", "Rear Paddles"),
-    TURBO_BTN("Turbo / Rapid", "Special Actions")
+    PADDLE_P1("Paddle P1 (unavailable)", "Rear Paddles"),
+    PADDLE_P2("Paddle P2 (unavailable)", "Rear Paddles"),
+    TURBO_BTN("Turbo / Rapid (unavailable)", "Special Actions")
 }
 
 enum class StickStylePreset(val label: String) {
@@ -116,49 +116,12 @@ data class ControllerLayoutProfile(
     }
 }
 
-enum class DeviceType {
-    PC,
-    LAPTOP,
-    STEAM_DECK,
-    CONSOLE,
-    GAMEPAD
-}
-
-data class DeviceTarget(
-    val id: String,
-    val name: String,
-    val subtitle: String,
-    val type: DeviceType,
-    val connectionType: String,
-    val rssiDbm: Int,
-    val isPaired: Boolean,
-    val isConnected: Boolean,
-    val streamRate: String,
-    val lastSeenOrConnected: String = "Just now",
-    val batteryPct: Int? = null,
-    val macAddress: String = "7C:BB:8A:2F:10:9A",
-    val protocol: String = "Bluetooth HID"
-)
-
 data class TelemetryData(
-    val linkState: String = "HID Connected",
-    val roundtripMs: Float = 3.8f,
-    val samplingHz: Int = 125,
-    val hostName: String = "Custom Rig (RTX 4090)",
-    val hostMac: String = "94:E6:F7:2B:90:1C",
-    val profileName: String = "P1 · Low Latency FPS",
-    val rfDbm: Int = -42,
-    val signalIntegrity: Int = 98,
-    val packetLoss: Float = 0.00f,
-    val minLatency: Float = 2.4f,
-    val maxLatency: Float = 5.1f,
-    val jitterMs: Float = 0.4f,
-    val hallDrift: Float = 0.0f,
-    val ltPressure: Int = 0, // 0..255
-    val rtPressure: Int = 0, // 0..255
-    val thermalC: Float = 29.4f,
-    val txRate: Float = 124.9f,
-    val totalPackets: Long = 243184L
+    val linkState: String = "Stopped",
+    val hostName: String = "Not connected",
+    val profileName: String = "Default",
+    val ltPressure: Int = 0,
+    val rtPressure: Int = 0
 )
 
 data class QuickActionsSettings(
@@ -170,8 +133,8 @@ data class QuickActionsSettings(
     val stickPerimeterHaptic: Boolean = true,
     val gyroAimEnabled: Boolean = false,
     val turboEnabled: Boolean = false,
-    val deadzonePct: Int = 5,
-    val pollRateHz: Int = 250,
+    val deadzonePct: Int = 4,
+    val sendIntervalMs: Int = 8,
     val audioHapticSync: Boolean = true
 )
 
@@ -180,26 +143,4 @@ enum class GamepadScreen {
     CUSTOMIZE_LAYOUT,
     DEVICE_DISCOVERY,
     DIAGNOSTICS
-}
-
-data class PingBurstResult(
-    val packetCount: Int = 100,
-    val minLatencyMs: Float = 2.4f,
-    val avgLatencyMs: Float = 3.6f,
-    val maxLatencyMs: Float = 4.9f,
-    val packetLossPct: Float = 0.0f,
-    val jitterMs: Float = 0.29f,
-    val qualityGrade: String = "EXCELLENT",
-    val timestamp: String = "Just now"
-)
-
-enum class ConnectionQualityRating(
-    val label: String,
-    val description: String,
-    val minScore: Int
-) {
-    EXCELLENT("EXCELLENT", "Competitive Esports Grade • Ultra Low Jitter", 85),
-    GOOD("GOOD", "Solid Link • Smooth Casual Gameplay", 70),
-    FAIR("FAIR", "Marginal RF Margin • Potential Jitter Spikes", 50),
-    POOR("POOR", "Degraded Signal • Packet Retransmissions", 0)
 }
