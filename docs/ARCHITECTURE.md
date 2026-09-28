@@ -19,11 +19,13 @@ GamepadViewModel StateFlows ----> Compose UI updates
 
 Stick, trigger, and button callbacks update local ViewModel state. `HapticFeedbackManager` uses Android's vibrator service for feedback on the **phone**. It does not command motors in a remote gamepad. The haptic channel labels in the diagnostics UI are presentation labels; the manager uses the default phone vibrator.
 
+Each controller-screen stick keeps its saved layout position as a home center. On an eligible down, `FloatingStickState` records the stable pointer ID and exact touch point as a temporary origin, emits neutral input, and calculates subsequent displacement relative to that fixed origin. Its circular activation radius is the base radius plus the configured reach (24 dp by default). Release, cancellation/disposal, backgrounding, or settings replacement clears live input without changing saved layout geometry. The layout editor explicitly uses fixed-center rendering so temporary origins cannot modify arrangements.
+
 ## Saved data
 
 Room database `gamepad_db` has tables for saved controller layouts, legacy element configurations, and paired-device records. Saved layout profiles are seeded when the layout table is empty, and the layout editor can save and load them through `CustomLayoutRepository`. The paired-device table receives records when the simulated connect action runs; those records are not proof of Bluetooth pairing. The discovery list itself is initialized from hard-coded `DeviceTarget` objects on each ViewModel creation. Quick action settings live in ViewModel memory.
 
-The database is at version 2 with `fallbackToDestructiveMigration()`. Add explicit migrations before changing the schema if existing layouts must survive upgrades.
+The database is at version 2 with `fallbackToDestructiveMigration()`. Add explicit migrations before changing the schema if existing layouts must survive upgrades. Most quick actions remain session state; floating-stick enablement and activation reach use Android `SharedPreferences`, with new-feature defaults when the keys are absent.
 
 ## Bluetooth and diagnostics boundary
 

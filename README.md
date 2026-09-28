@@ -19,6 +19,7 @@ Bluetooth Gamepad is an Android controller interface built with Jetpack Compose.
 ## What you can use now
 
 - An on-screen controller with sticks, D-pad, triggers, bumpers, and face buttons. Touch input updates local state and can vibrate the phone.
+- Floating analog sticks recenter their visible base at the initial touch and remain neutral until the thumb moves. In **Quick Actions**, “Recenter sticks on touch” is enabled by default and “Extra activation reach” defaults to 24 dp (adjustable from 0–48 dp); disabling it restores fixed-center sticks.
 - A layout editor for moving, scaling, adding, and removing controls. It includes default, FPS, fighting, and southpaw arrangements.
 - Saved layout profiles backed by a local Room database. The profile manager can load, duplicate, rename, and delete profiles.
 - A quick actions drawer for local settings such as haptics, profile selection, and displayed polling rate.

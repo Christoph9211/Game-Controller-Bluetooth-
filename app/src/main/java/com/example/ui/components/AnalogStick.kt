@@ -1,58 +1,81 @@
 package com.example.ui.components
 
 import android.view.HapticFeedbackConstants
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
+import android.os.SystemClock
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerId
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.StickStylePreset
-import com.example.ui.theme.ActiveControlFill
 import com.example.ui.theme.ControlBorderGlow
 import com.example.ui.theme.ControlBorderSubtle
-import com.example.ui.theme.PrimaryContainerBlue
 import com.example.ui.theme.SurfaceCard
 import com.example.ui.theme.SurfaceContainerLowest
-import com.example.ui.theme.SurfaceControl
 import com.example.ui.theme.SurfaceControlRaised
-import com.example.ui.theme.SurfaceDefault
-import com.example.ui.theme.TextTertiary
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.roundToInt
-import kotlin.math.sin
 import kotlin.math.sqrt
+
+/** Pure stick geometry, kept separate from Compose so touch-down neutrality is regression-testable. */
+class FloatingStickState(private val movementRadius: Float, private val deadzone: Float) {
+    var owner: PointerId? = null
+        private set
+    var origin: Offset = Offset.Zero
+        private set
+    var finger: Offset = Offset.Zero
+        private set
+
+    fun acquire(
+        id: PointerId,
+        point: Offset,
+        home: Offset,
+        activationRadius: Float,
+        recenter: Boolean = true
+    ): Boolean {
+        if (owner != null || (point - home).getDistance() > activationRadius) return false
+        owner = id
+        origin = if (recenter) point else home
+        finger = point
+        return true
+    }
+
+    fun move(id: PointerId, point: Offset): Offset {
+        if (owner != id) return Offset.Zero
+        finger = point
+        val delta = point - origin
+        val distance = delta.getDistance()
+        if (distance == 0f || distance / movementRadius <= deadzone) return Offset.Zero
+        val scale = movementRadius / distance.coerceAtLeast(movementRadius)
+        return Offset(delta.x * scale / movementRadius, delta.y * scale / movementRadius)
+    }
+
+    fun release(id: PointerId): Boolean {
+        if (owner != id) return false
+        reset()
+        return true
+    }
+
+    fun reset() {
+        owner = null
+        origin = Offset.Zero
+        finger = Offset.Zero
+    }
+}
 
 @Composable
 fun AnalogStick(
@@ -60,200 +83,120 @@ fun AnalogStick(
     sizeDp: Dp = 112.dp,
     label: String = "Left Stick",
     stylePreset: StickStylePreset = StickStylePreset.HALO,
+    recenterOnTouch: Boolean = true,
+    extraActivationReachDp: Dp = 24.dp,
+    deadzonePct: Int = 5,
     onMove: (x: Float, y: Float) -> Unit = { _, _ -> },
     onStickClick: () -> Unit = {}
 ) {
-    val view = LocalView.current
     val density = LocalDensity.current
+    val view = LocalView.current
     val sizePx = with(density) { sizeDp.toPx() }
-    val maxRadiusPx = sizePx / 2.3f
-    val puckSizeDp = sizeDp * 0.52f
+    val reachPx = with(density) { if (recenterOnTouch) extraActivationReachDp.toPx() else 0f }
+    val canvasDp = sizeDp + (if (recenterOnTouch) extraActivationReachDp * 2 else 0.dp)
+    val movementRadius = sizePx / 2.3f
+    val baseRadius = sizePx / 2f
+    val home = Offset(baseRadius + reachPx, baseRadius + reachPx)
+    val activationRadius = if (recenterOnTouch) baseRadius + reachPx else baseRadius
+    val state = remember(movementRadius, deadzonePct) {
+        FloatingStickState(movementRadius, deadzonePct.coerceIn(0, 20) / 100f)
+    }
+    var active by remember { mutableStateOf(false) }
+    var output by remember { mutableStateOf(Offset.Zero) }
+    var activeCenter by remember { mutableStateOf(home) }
+    var movedDuringGesture by remember { mutableStateOf(false) }
+    var lastTapAtMs by remember { mutableStateOf(0L) }
 
-    var dragOffsetPx by remember { mutableStateOf(Offset.Zero) }
-    var isTouching by remember { mutableStateOf(false) }
+    DisposableEffect(state) {
+        onDispose {
+            state.reset()
+            onMove(0f, 0f)
+        }
+    }
 
-    // Smooth return to center when released
-    val animatedX by animateFloatAsState(
-        targetValue = if (isTouching) dragOffsetPx.x else 0f,
-        animationSpec = spring(dampingRatio = 0.65f, stiffness = 800f),
-        label = "stickX"
-    )
-    val animatedY by animateFloatAsState(
-        targetValue = if (isTouching) dragOffsetPx.y else 0f,
-        animationSpec = spring(dampingRatio = 0.65f, stiffness = 800f),
-        label = "stickY"
-    )
-
-    val currentOffsetX = if (isTouching) dragOffsetPx.x else animatedX
-    val currentOffsetY = if (isTouching) dragOffsetPx.y else animatedY
-
-    Box(
+    Canvas(
         modifier = modifier
-            .size(sizeDp)
-            .testTag(if (label.contains("Left", ignoreCase = true)) "analog_stick_left" else "analog_stick_right")
-            .clip(CircleShape)
-            .background(SurfaceContainerLowest)
-            .border(1.5.dp, if (isTouching) ControlBorderGlow.copy(alpha = 0.6f) else SurfaceControlRaised, CircleShape)
-            .drawBehind {
-                val center = Offset(size.width / 2f, size.height / 2f)
-                // Draw concentric guide circles
-                drawCircle(
-                    color = SurfaceControl.copy(alpha = 0.4f),
-                    radius = size.width * 0.42f,
-                    style = Stroke(width = 1.dp.toPx())
-                )
-                drawCircle(
-                    color = ControlBorderSubtle.copy(alpha = 0.3f),
-                    radius = size.width * 0.25f,
-                    style = Stroke(width = 1.dp.toPx())
-                )
-
-                // When touching, draw displacement vector line
-                if (isTouching && (currentOffsetX != 0f || currentOffsetY != 0f)) {
-                    drawLine(
-                        color = ControlBorderGlow.copy(alpha = 0.7f),
-                        start = center,
-                        end = Offset(center.x + currentOffsetX, center.y + currentOffsetY),
-                        strokeWidth = 2.dp.toPx()
-                    )
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isTouching = true
-                        view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                        val center = Offset(sizePx / 2f, sizePx / 2f)
-                        val delta = offset - center
-                        val distance = sqrt(delta.x * delta.x + delta.y * delta.y)
-                        val clampedDist = distance.coerceAtMost(maxRadiusPx)
-                        val angle = atan2(delta.y, delta.x)
-                        val x = cos(angle) * clampedDist
-                        val y = sin(angle) * clampedDist
-                        dragOffsetPx = Offset(x, y)
-                        onMove(x / maxRadiusPx, y / maxRadiusPx)
-                    },
-                    onDragEnd = {
-                        isTouching = false
-                        dragOffsetPx = Offset.Zero
-                        onMove(0f, 0f)
-                    },
-                    onDragCancel = {
-                        isTouching = false
-                        dragOffsetPx = Offset.Zero
-                        onMove(0f, 0f)
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        val newOffset = dragOffsetPx + dragAmount
-                        val distance = sqrt(newOffset.x * newOffset.x + newOffset.y * newOffset.y)
-                        if (distance <= maxRadiusPx) {
-                            dragOffsetPx = newOffset
+            .size(canvasDp)
+            .testTag(if (label.contains("Left", true)) "analog_stick_left" else "analog_stick_right")
+            .pointerInput(recenterOnTouch, reachPx, deadzonePct) {
+                try {
+                    awaitPointerEventScope { while (true) {
+                        val event = awaitPointerEvent()
+                        // Stable pointer IDs are used; array indices are never retained.
+                        if (state.owner == null) {
+                            val down = event.changes.firstOrNull { it.pressed && !it.previousPressed }
+                            if (down != null && state.acquire(down.id, down.position, home, activationRadius, recenterOnTouch)) {
+                                down.consume()
+                                active = true
+                                movedDuringGesture = false
+                                activeCenter = if (recenterOnTouch) down.position else home
+                                output = if (recenterOnTouch) Offset.Zero else state.move(down.id, down.position)
+                                onMove(output.x, output.y) // neutral is submitted before any drag report
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
                         } else {
-                            val angle = atan2(newOffset.y, newOffset.x)
-                            dragOffsetPx = Offset(cos(angle) * maxRadiusPx, sin(angle) * maxRadiusPx)
+                            val owner = state.owner
+                            val change = event.changes.firstOrNull { it.id == owner }
+                            if (change == null || change.changedToUpIgnoreConsumed() || !change.pressed) {
+                                val now = SystemClock.uptimeMillis()
+                                if (!movedDuringGesture) {
+                                    if (now - lastTapAtMs <= 350L) {
+                                        onStickClick()
+                                        lastTapAtMs = 0L
+                                    } else {
+                                        lastTapAtMs = now
+                                    }
+                                }
+                                if (owner != null) state.release(owner)
+                                active = false
+                                activeCenter = home
+                                output = Offset.Zero
+                                onMove(0f, 0f)
+                            } else {
+                                change.consume()
+                                if ((change.position - state.origin).getDistance() > with(density) { 8.dp.toPx() }) {
+                                    movedDuringGesture = true
+                                }
+                                output = state.move(change.id, change.position)
+                                onMove(output.x, output.y)
+                            }
                         }
-                        val normalizedX = (dragOffsetPx.x / maxRadiusPx).coerceIn(-1f, 1f)
-                        val normalizedY = (dragOffsetPx.y / maxRadiusPx).coerceIn(-1f, 1f)
-                        onMove(normalizedX, normalizedY)
+                    } }
+                } finally {
+                    if (state.owner != null) {
+                        state.reset()
+                        active = false
+                        activeCenter = home
+                        output = Offset.Zero
+                        onMove(0f, 0f)
                     }
-                )
-            },
-        contentAlignment = Alignment.Center
-    ) {
-        // Floating puck (thumb cap)
-        Box(
-            modifier = Modifier
-                .offset {
-                    val xDp = with(density) { currentOffsetX.toDp() }
-                    val yDp = with(density) { currentOffsetY.toDp() }
-                    IntOffset(
-                        (currentOffsetX).roundToInt(),
-                        (currentOffsetY).roundToInt()
-                    )
-                }
-                .size(puckSizeDp)
-                .shadow(
-                    elevation = if (isTouching) 12.dp else 6.dp,
-                    shape = CircleShape,
-                    ambientColor = if (isTouching) ControlBorderGlow else Color.Black,
-                    spotColor = if (isTouching) ControlBorderGlow else Color.Black
-                )
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            SurfaceControlRaised,
-                            SurfaceCard,
-                            SurfaceDefault
-                        )
-                    )
-                )
-                .border(
-                    width = if (isTouching) 2.dp else 1.2.dp,
-                    color = if (isTouching) ControlBorderGlow else ControlBorderSubtle,
-                    shape = CircleShape
-                )
-                .pointerInput(label) {
-                    detectTapGestures(
-                        onDoubleTap = {
-                            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                            onStickClick()
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
-        ) {
-            // Style-specific inner cap
-            when (stylePreset) {
-                StickStylePreset.HALO -> {
-                    // Halo style: glowing cyan center disk
-                    Box(
-                        modifier = Modifier
-                            .size(puckSizeDp * 0.48f)
-                            .clip(CircleShape)
-                            .background(if (isTouching) PrimaryContainerBlue else SurfaceControl)
-                            .border(1.dp, if (isTouching) ControlBorderGlow else SurfaceControlRaised, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(puckSizeDp * 0.22f)
-                                .clip(CircleShape)
-                                .background(if (isTouching) Color.White else ControlBorderGlow)
-                        )
-                    }
-                }
-                StickStylePreset.TARGET -> {
-                    // Target style: concentric rings
-                    Canvas(modifier = Modifier.size(puckSizeDp * 0.6f)) {
-                        drawCircle(
-                            color = if (isTouching) ControlBorderGlow else ControlBorderSubtle,
-                            radius = size.width / 2f,
-                            style = Stroke(width = 1.5.dp.toPx())
-                        )
-                        drawCircle(
-                            color = if (isTouching) ControlBorderGlow else ActiveControlFill,
-                            radius = size.width / 4f,
-                            style = Stroke(width = 2.dp.toPx())
-                        )
-                        drawCircle(
-                            color = if (isTouching) Color.White else SurfaceControlRaised,
-                            radius = size.width / 8f
-                        )
-                    }
-                }
-                StickStylePreset.MINIMAL -> {
-                    // Minimal style: debossed concave dish
-                    Box(
-                        modifier = Modifier
-                            .size(puckSizeDp * 0.44f)
-                            .clip(CircleShape)
-                            .background(SurfaceContainerLowest)
-                            .border(1.dp, SurfaceControlRaised, CircleShape)
-                    )
                 }
             }
+    ) {
+        val center = if (active) activeCenter else home
+        drawCircle(SurfaceContainerLowest, baseRadius, center)
+        drawCircle(if (active) ControlBorderGlow.copy(alpha = .6f) else SurfaceControlRaised,
+            baseRadius, center, style = Stroke(1.5.dp.toPx()))
+        drawCircle(ControlBorderSubtle.copy(alpha = .3f), sizePx * .25f, center,
+            style = Stroke(1.dp.toPx()))
+        if (active && output != Offset.Zero) {
+            drawLine(ControlBorderGlow.copy(alpha = .7f), center,
+                center + output * movementRadius, 2.dp.toPx())
+        }
+        val puckCenter = center + output * movementRadius
+        val puckRadius = sizePx * .26f
+        drawCircle(Brush.radialGradient(listOf(SurfaceControlRaised, SurfaceCard), center = puckCenter,
+            radius = puckRadius), puckRadius, puckCenter)
+        drawCircle(if (active) ControlBorderGlow else ControlBorderSubtle, puckRadius, puckCenter,
+            style = Stroke(if (active) 2.dp.toPx() else 1.2.dp.toPx()))
+        when (stylePreset) {
+            StickStylePreset.HALO -> drawCircle(if (active) Color.White else ControlBorderGlow,
+                puckRadius * .22f, puckCenter)
+            StickStylePreset.TARGET -> {
+                drawCircle(ControlBorderGlow, puckRadius * .55f, puckCenter, style = Stroke(1.5.dp.toPx()))
+                drawCircle(if (active) Color.White else SurfaceControlRaised, puckRadius * .15f, puckCenter)
+            }
+            StickStylePreset.MINIMAL -> drawCircle(SurfaceContainerLowest, puckRadius * .44f, puckCenter)
         }
     }
 }

@@ -171,6 +171,8 @@ data class QuickActionsSettings(
     val gyroAimEnabled: Boolean = false,
     val turboEnabled: Boolean = false,
     val deadzonePct: Int = 5,
+    val recenterSticksOnTouch: Boolean = true,
+    val extraActivationReachDp: Int = 24,
     val pollRateHz: Int = 250,
     val audioHapticSync: Boolean = true
 )

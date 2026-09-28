@@ -29,6 +29,8 @@ import com.example.ui.theme.SurfaceCanvas
 import com.example.viewmodel.GamepadViewModel
 
 class MainActivity : ComponentActivity() {
+    private var controllerViewModel: GamepadViewModel? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 val viewModel: GamepadViewModel = viewModel()
+                controllerViewModel = viewModel
                 val currentScreen by viewModel.currentScreen.collectAsState()
                 val isDrawerOpen by viewModel.isQuickDrawerOpen.collectAsState()
 
@@ -78,6 +81,11 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        controllerViewModel?.releaseAllInputs()
+        super.onStop()
     }
 }
 

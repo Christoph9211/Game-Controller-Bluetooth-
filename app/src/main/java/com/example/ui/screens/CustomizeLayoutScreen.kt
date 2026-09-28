@@ -727,14 +727,16 @@ private fun MovableElementWrapper(
                 AnalogStick(
                     sizeDp = (116 * config.scale).dp,
                     label = "Left Stick",
-                    stylePreset = config.stylePreset
+                    stylePreset = config.stylePreset,
+                    recenterOnTouch = false
                 )
             }
             ControllerElementId.RIGHT_STICK -> {
                 AnalogStick(
                     sizeDp = (116 * config.scale).dp,
                     label = "Right Stick",
-                    stylePreset = config.stylePreset
+                    stylePreset = config.stylePreset,
+                    recenterOnTouch = false
                 )
             }
             ControllerElementId.DPAD -> {
