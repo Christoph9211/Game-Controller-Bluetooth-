@@ -1,20 +1,32 @@
-# Bluetooth Gamepad — UI prototype
+# Bluetooth Gamepad — Compose controller with Bluetooth transport
 
-**Project label: UI PROTOTYPE — BLUETOOTH NOT IMPLEMENTED**
+**Project label: COMPOSE CONTROLLER — HID TRANSPORT + EXPERIMENTAL WINDOWS BRIDGE**
 
-This is the separate Jetpack Compose interface prototype. Its controller, layout editor, saved profiles, and phone haptics work locally; discovery, connections, and link diagnostics are simulated. It does not transmit Bluetooth HID input or include the Windows bridge.
+This is a separate Jetpack Compose controller app with real Android Bluetooth HID transport, a Room-backed layout editor, saved profiles, floating sticks, and phone haptics. It also contains the experimental Windows Xbox bridge in `windows/`. Host state comes from Android Bluetooth callbacks and bonded devices; diagnostics measure the local sender. **Implementation is present; physical Bluetooth, Windows driver, gameplay, and end-to-end latency acceptance remain unverified.**
 
 ## Related controller projects
 
 | Repository | Role |
 | --- | --- |
 | [Android-Bluetooth-Gamepad](https://github.com/Christoph9211/Android-Bluetooth-Gamepad) | Main controller project: native HID and experimental Windows bridge |
-| [Bluetooth-Gamepad-Studio-](https://github.com/Christoph9211/Bluetooth-Gamepad-Studio-) | Duplicate controller copy with build/configuration differences |
-| [Game-Controller-Bluetooth-](https://github.com/Christoph9211/Game-Controller-Bluetooth-) | Separate UI prototype; Bluetooth transmission not implemented |
+| [Bluetooth-Gamepad-Studio-](https://github.com/Christoph9211/Bluetooth-Gamepad-Studio-) | Related controller copy with its own build/signing configuration; may diverge from the main project |
+| [Game-Controller-Bluetooth-](https://github.com/Christoph9211/Game-Controller-Bluetooth-) | Separate Compose controller and Room layouts; ported HID transport and in-repo experimental Windows bridge |
 
 Android 9+ Bluetooth Classic HID controller with a Jetpack Compose interface, two sticks, eight-way D-pad, analog triggers, holdable buttons, phone haptics, and saved layout profiles.
 
 The real controller transport was ported from `Android-Bluetooth-Gamepad` commit `ec3b596a8b787d23f4d01b516fbdec5a116ee63a`. Both generic HID and the experimental Windows companion protocol are preserved. This is a local test candidate; successful builds and emulator checks do not establish physical Bluetooth/gameplay compatibility.
+
+The main project uses Canvas `PadView` gameplay controls with Compose navigation; this app uses Compose controller components and Room layouts. Studio is a related copy, not a guarantee of current source parity: its build configuration differs and the main project continues to evolve. Repository roles do not imply hardware validation.
+
+## Implementation and evidence
+
+| Area | Current status |
+| --- | --- |
+| Android transport | HID registration, bonded-host connection, generic reports and Windows vendor reports implemented in `app/src/main/java/com/example/bluetooth/` |
+| Windows companion | Raw Input, protocol decoding, virtual Xbox output, safety gate, diagnostics and driver packaging code added in `4d8920b` on September 28, 2026 |
+| Automated/emulator evidence | Historical Android port results are recorded in [validation](docs/VALIDATION.md); they are not a fresh validation of current main or the Windows addition |
+| Windows build/distribution | Build/test/smoke scripts exist; this checkout has no GitHub Actions workflow or recorded Windows acceptance result |
+| Hardware acceptance | Physical Bluetooth delivery, driver installation, gameplay, reconnect reliability and latency still require device testing |
 
 ## Connect
 
@@ -31,7 +43,7 @@ Some phones do not support the Android HID Device profile. Registration errors a
 
 With Bluetooth stopped, switch Host mode to **Windows bridge (experimental)**. Forget the old pairing on both devices and pair again whenever changing modes; the descriptors differ.
 
-Use the existing [PhoneGamepadBridge companion and setup instructions](https://github.com/Christoph9211/Android-Bluetooth-Gamepad/tree/main/windows) from the source project. Start its bridge after connecting the phone. Its separate virtual-controller driver setup is required. This port neither copies nor changes the Windows companion. Bluetooth connection alone does not prove virtual Xbox input or game compatibility.
+Use the [in-repository PhoneGamepadBridge build and setup instructions](windows/README.md). Start the bridge after connecting the phone. Virtual Xbox output requires its separate Windows virtual-controller driver setup (retired ViGEmBus), with explicit consent and UAC. The companion implementation is included; a validated downloadable package is not established by its presence. Bluetooth connection alone does not prove virtual Xbox input or game compatibility.
 
 ## Controls and customization
 
