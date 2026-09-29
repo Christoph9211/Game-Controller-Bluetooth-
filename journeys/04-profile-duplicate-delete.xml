@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Duplicate and delete only a test layout">
+  <description>Start on Controller after 03. Journey-Core-Layout exists and Journey-Core-Layout (Copy) does not. Only the copy created here may be deleted. Original is retained for persistence checks.</description>
+  <actions>
+    <action>Tap Layouts.</action>
+    <action>Tap Search layouts and enter Journey-Core-Layout.</action>
+    <action>Tap Duplicate Journey-Core-Layout.</action>
+    <action>Verify that Journey-Core-Layout and Journey-Core-Layout (Copy) are listed.</action>
+    <action>Tap Delete Journey-Core-Layout (Copy).</action>
+    <action>Verify that Delete Layout Configuration? names Journey-Core-Layout (Copy).</action>
+    <action>Tap Cancel.</action>
+    <action>Verify that Journey-Core-Layout (Copy) is still listed.</action>
+    <action>Tap Delete Journey-Core-Layout (Copy).</action>
+    <action>Tap Delete in the confirmation dialog.</action>
+    <action>Verify that the copy is absent and Journey-Core-Layout remains listed.</action>
+    <action>Tap Close.</action>
+  </actions>
+</journey>

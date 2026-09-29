@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Physical HID connection and neutral safety">
+  <description>Hardware-only. Controller phone supports HID Device and has Nearby devices permission and Bluetooth enabled. Bluetooth stopped, generic HID mode selected, approved receiver already paired and named in the run report. Receiver has a visible gamepad tester. An operator or suitable multi-touch tool must hold input while another action runs. Block if receiver observation or concurrent touch is unavailable; emulator registration is insufficient.</description>
+  <actions>
+    <action>Tap Connect.</action>
+    <action>Tap Start Bluetooth.</action>
+    <action>Verify that Controller status reports Ready and Make phone discoverable is enabled.</action>
+    <action>Verify that the Windows bridge mode switch is disabled while Bluetooth is active.</action>
+    <action>Tap Refresh paired hosts.</action>
+    <action>Scroll to the approved receiver card.</action>
+    <action>Tap Connect on that receiver card.</action>
+    <action>Verify that the receiver card reports HID connected.</action>
+    <action>Scroll to the top.</action>
+    <action>Tap Back to controller.</action>
+    <action>Verify that the controller header names the connected receiver.</action>
+    <action>Press and hold A on the controller phone.</action>
+    <action>Verify on the receiver gamepad tester that A is held.</action>
+    <action>Release A on the controller phone.</action>
+    <action>Verify on the receiver tester that A is released.</action>
+    <action>Hold the left stick away from neutral and hold the right trigger with another finger.</action>
+    <action>Verify on the receiver tester that both inputs are active simultaneously.</action>
+    <action>While keeping those contacts down, tap Quick actions with another finger.</action>
+    <action>Verify on the receiver tester that all inputs have returned to neutral.</action>
+    <action>Release all contacts.</action>
+    <action>Press Android Back.</action>
+    <action>Verify on the receiver tester that inputs remain neutral until a fresh touch.</action>
+    <action>Tap Connect.</action>
+    <action>Tap Disconnect host.</action>
+    <action>Verify that no receiver card reports HID connected.</action>
+    <action>Tap Stop.</action>
+    <action>Verify that Controller status reports Stopped and Start Bluetooth is enabled.</action>
+  </actions>
+</journey>

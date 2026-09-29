@@ -1,0 +1,15 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const html = fs.readFileSync(`${__dirname}/gamepad-tester.html`, 'utf8');
+const elements = { reset: {}, output: {} };
+const context = vm.createContext({ document: { getElementById: id => elements[id] }, setInterval() {} });
+vm.runInContext(html.match(/<script>([\s\S]*?)<\/script>/)[1], context);
+assert.match(context.render([null]), /Waiting/);
+const pad = { id: 'Test', index: 0, mapping: '', buttons: [{ pressed: true, value: 1 }], axes: [-0.5] };
+assert.match(context.render([pad]), /B0: DOWN  1\.000/);
+pad.buttons[0] = { pressed: false, value: 0 };
+assert.match(context.render([pad]), /B0: up  0\.000[\s\S]*Axis 0: -0\.500[\s\S]*Observed pressed: 0:0/);
+elements.reset.onclick();
+assert.ok(!context.render([pad]).includes('Observed pressed: 0:0'));
+console.log('PASS: detection, press, release, axis display, history reset');

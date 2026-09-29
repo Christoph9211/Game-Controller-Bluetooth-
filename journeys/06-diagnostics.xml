@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Honest diagnostics and local haptics">
+  <description>Start on Controller with Bluetooth stopped and no sender session. Phone vibration requires human confirmation on suitable hardware; an event label alone does not prove physical vibration.</description>
+  <actions>
+    <action>Tap Diagnostics.</action>
+    <action>Verify that RSSI, Round-trip latency, and Receiver packet loss each show Unavailable.</action>
+    <action>Verify that Local sender measurements shows No sender session.</action>
+    <action>Scroll until Reset is visible.</action>
+    <action>Tap Reset.</action>
+    <action>Verify that No sender session. remains displayed.</action>
+    <action>Scroll until Test phone vibration is visible.</action>
+    <action>Verify that Phone haptics explains that only this phone is tested and remote rumble is not reported.</action>
+    <action>Tap Test phone vibration.</action>
+    <action>Verify that the app remains on Diagnostics without crashing.</action>
+    <action>Scroll to the top.</action>
+    <action>Tap Back to controller.</action>
+  </actions>
+</journey>

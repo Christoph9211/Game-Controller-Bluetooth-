@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Customize and save a layout">
+  <description>Start on Controller with Bluetooth stopped, default layout, portrait or tall window. Reserve Journey-Core-Layout for this run; it must not already exist. Test creates a profile and changes the active layout.</description>
+  <actions>
+    <action>Tap Customize.</action>
+    <action>Verify that Customize Layout is visible.</action>
+    <action>Tap the left stick in the editor canvas to select it.</action>
+    <action>Tap Center X in the selected control inspector.</action>
+    <action>Verify that the selected control inspector shows X: 50%.</action>
+    <action>Tap Profiles in the editor toolbar.</action>
+    <action>Tap Save Current As New.</action>
+    <action>Tap Layout Name and enter Journey-Core-Layout.</action>
+    <action>Tap Save layout.</action>
+    <action>Tap Search layouts and enter Journey-Core-Layout.</action>
+    <action>Verify that the Journey-Core-Layout card is visible and marked Active.</action>
+    <action>Tap Close.</action>
+    <action>Press Android Back.</action>
+    <action>Tap Layouts.</action>
+    <action>Tap Search layouts and enter Journey-Core-Layout.</action>
+    <action>Tap Active or Load on the Journey-Core-Layout card.</action>
+    <action>Tap Close.</action>
+    <action>Tap Customize.</action>
+    <action>Tap the left stick in the editor canvas.</action>
+    <action>Verify that its inspector still shows X: 50%.</action>
+    <action>Press Android Back.</action>
+  </actions>
+</journey>

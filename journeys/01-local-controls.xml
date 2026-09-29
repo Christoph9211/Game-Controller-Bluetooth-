@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Local controller and navigation">
+  <description>Start on Controller, Bluetooth stopped, default preset, window large enough to show controls. No receiver required. Held-state assertions need continuous touch plus observation; ordinary completed adb swipes only verify release.</description>
+  <actions>
+    <action>Verify that the controller shows Not connected and Local controls.</action>
+    <action>Drag the left stick away from its touch origin, then release it.</action>
+    <action>Verify that LS displays (0%, 0%) after release.</action>
+    <action>Drag the right stick away from its touch origin, then release it.</action>
+    <action>Verify that RS displays (0%, 0%) after release.</action>
+    <action>Press and release the A button.</action>
+    <action>Press and release the left trigger.</action>
+    <action>Press and release the right trigger.</action>
+    <action>Verify that LT: 0 and RT: 0 are displayed.</action>
+    <action>Tap Quick actions.</action>
+    <action>Press Android Back.</action>
+    <action>Verify that the drawer is closed and the controller is visible.</action>
+    <action>Tap Connect.</action>
+    <action>Verify that Bluetooth connection is visible.</action>
+    <action>Tap Back to controller.</action>
+    <action>Verify that both sticks and both triggers display neutral values.</action>
+  </actions>
+</journey>

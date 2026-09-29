@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Configure stick touch behavior">
+  <description>Start on Controller with Bluetooth stopped. This changes local settings and finishes at stick defaults and 8 ms. Use a dedicated test profile/device if existing preferences must be retained.</description>
+  <actions>
+    <action>Tap Quick actions.</action>
+    <action>Scroll the drawer until Stick defaults is visible.</action>
+    <action>Tap Stick defaults.</action>
+    <action>Verify that Recenter sticks on touch is on and EXTRA ACTIVATION REACH shows 24 dp.</action>
+    <action>Tap the Recenter sticks on touch switch.</action>
+    <action>Verify that the switch is off and the extra activation reach slider is disabled.</action>
+    <action>Tap the Recenter sticks on touch switch.</action>
+    <action>Move the EXTRA ACTIVATION REACH slider to its maximum.</action>
+    <action>Verify that EXTRA ACTIVATION REACH shows 48 dp.</action>
+    <action>Tap Stick defaults.</action>
+    <action>Verify that Recenter sticks on touch is on and EXTRA ACTIVATION REACH shows 24 dp.</action>
+    <action>Scroll the drawer to the scheduling interval choices.</action>
+    <action>Tap 16 ms.</action>
+    <action>Press Android Back.</action>
+    <action>Tap Diagnostics.</action>
+    <action>Verify that Local sender measurements describes a 16 ms analog scheduling interval.</action>
+    <action>Tap Back to controller.</action>
+    <action>Tap Quick actions.</action>
+    <action>Scroll the drawer to the scheduling interval choices.</action>
+    <action>Tap 8 ms.</action>
+    <action>Press Android Back.</action>
+  </actions>
+</journey>

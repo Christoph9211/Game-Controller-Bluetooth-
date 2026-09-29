@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bluetooth Gamepad Receiver Tester</title>
+<style>
+  body { font: 18px system-ui; background: #101820; color: #eef5fa; margin: 20px; }
+  button { font: inherit; padding: 12px; }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+</style>
+<h1>Receiver tester</h1>
+<p>Keep this page visible on the receiving phone. Press a button on the controller phone to detect it.</p>
+<p>Button and axis numbers use the browser mapping. Trigger rest values can differ by mapping.</p>
+<button id="reset">Reset observed buttons</button>
+<pre id="output" aria-label="Live gamepad state">Waiting for controller input…</pre>
+<script>
+  const seen = new Set();
+  const output = document.getElementById('output');
+  document.getElementById('reset').onclick = () => seen.clear();
+  function render(pads) {
+    const lines = [];
+    for (const pad of pads) {
+      if (!pad) continue;
+      lines.push(pad.id, 'Mapping: ' + (pad.mapping || 'device-specific'));
+      pad.buttons.forEach((button, i) => {
+        if (button.pressed) seen.add(pad.index + ':' + i);
+        lines.push('B' + i + ': ' + (button.pressed ? 'DOWN' : 'up') + '  ' + button.value.toFixed(3));
+      });
+      pad.axes.forEach((value, i) => lines.push('Axis ' + i + ': ' + value.toFixed(3)));
+    }
+    return lines.length ? lines.join('\n') + '\nObserved pressed: ' + [...seen].join(', ') : 'Waiting for controller input…';
+  }
+  setInterval(() => {
+    try { output.textContent = render(navigator.getGamepads()); }
+    catch (error) { output.textContent = 'Gamepad API unavailable: ' + error.message; }
+  }, 100);
+</script>
+</html>

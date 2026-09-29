@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<journey name="Nearby devices denial">
+  <description>Android 12+ test device, Nearby devices permission not yet granted and permission prompt available. Start on Controller with Bluetooth stopped. Do not revoke user permissions or clear app data automatically to prepare this test.</description>
+  <actions>
+    <action>Tap Connect.</action>
+    <action>Tap Start Bluetooth.</action>
+    <action>Tap the system permission dialog option that denies Nearby devices access.</action>
+    <action>Verify that Controller status reports Nearby devices permission denied. Allow it in app settings to connect.</action>
+    <action>Verify that Make phone discoverable is disabled and no host is marked HID connected.</action>
+    <action>Tap Back to controller.</action>
+    <action>Verify that Not connected and Local controls are displayed.</action>
+  </actions>
+</journey>
