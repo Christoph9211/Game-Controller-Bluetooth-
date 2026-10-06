@@ -1,29 +1,27 @@
 # Phone Gamepad Bridge 0.2.0 (Windows x64)
 
-**Experimental, opt-in companion.** Android/generic HID is the project's
-production release path. Windows support covers bridge application code and
-tested configurations; no kernel-driver fixes or future Windows compatibility
-are promised. Serious unresolved security or compatibility failures suspend
-affected downloads; builds are withdrawn if safe operation cannot be restored.
-ViGEmBus remains retired. Experimental distribution still requires security and
-physical-device acceptance. The installer requires explicit consent and Windows
-UAC. Keep all bundled license notices and provenance files.
+**Experimental, opt-in companion implementation.** Added to this repository in
+`4d8920b` on September 28, 2026. Android/generic HID is the direct controller
+mode; neither mode is certified for production here. Windows build scripts and
+tests are present, but this checkout has no recorded Windows build or hardware
+acceptance result. ViGEmBus remains retired. Driver setup requires explicit
+consent and Windows UAC. Preserve bundled notices and provenance when packaging.
 
-An integrated, self-contained Windows companion for this repository's Android controller. It supplies the narrow feature needed from x360ce v4: translate phone state into a virtual Xbox 360 controller. It is a new implementation using the ViGEm backend, NOT a copy or embedded instance of x360ce. No Steam, button-mapping wizard, separately installed .NET, game-folder DLLs, HidHide, or Internet connection during play.
+Code for an integrated, self-contained Windows companion for this repository's Android controller. It supplies the narrow feature needed from x360ce v4: translate phone state into a virtual Xbox 360 controller. It is a new implementation using the ViGEm backend, NOT a copy or embedded instance of x360ce. No Steam, button-mapping wizard, separately installed .NET, game-folder DLLs, HidHide, or Internet connection during play.
 
 ## Install / first connection
 
-1. Extract the entire Windows artifact ZIP to a folder, keeping the license notices. Run `PhoneGamepadBridge.exe`. The bridge itself is an **unsigned test build**, not an upstream-signed x360ce release. Do not disable security protections to run it.
+1. Build the package below on Windows; no successful downloadable artifact is established by this checkout. Keep the entire output folder and license notices together. Run `PhoneGamepadBridge.exe`. The bridge itself is an **unsigned test build**, not an upstream-signed x360ce release. Do not disable security protections to run it.
 2. Existing compatible ViGEm installations can use **Start bridge** directly. Otherwise select **Install controller support (one time)** in the bridge. Read the retired-driver warning, approve Windows UAC, and complete the bundled official driver installer. No external download or separate controller configuration is required. This is a guided first-run setup, NOT an entirely silent or zero-install system. Only this requested installer runs elevated; normal gameplay does not.
-3. Install this branch's **Android v0.2.0 APK** on the controller phone. A different debug signing key may require removing the older debug app first; this removes its app preferences. Stop the controller, then **Options > Mode: Windows Xbox bridge > Switch mode**.
-4. Changing mode changes the Bluetooth HID descriptor. Forget the pairing between these TWO devices on Windows and Android, then Start/Pair/connect again. Do not globally reset Bluetooth or delete unrelated devices. Keep the phone controller screen visible.
+3. Install this repository's Android debug APK (`com.aistudio.btgamepad.zqxrvk`; Android version name `1.0`, separate from bridge version `0.2.0`). A different debug signing key may require removing the older debug app first, which removes saved data. Open **Connect**, stop Bluetooth, and switch **Host mode** to **Windows bridge (experimental)**.
+4. Changing mode changes the Bluetooth HID descriptor. Forget the pairing between these TWO devices on Windows and Android, then tap **Start Bluetooth**, wait for registration, use **Make phone discoverable**, pair from Windows, and **Refresh paired hosts > Connect**. Do not globally reset Bluetooth or delete unrelated devices. Keep the phone controller screen visible.
 5. The bridge detects the dedicated phone channel. A single phone is selected automatically; choose one if several are present. Press **Start bridge**, release all phone controls to arm it, then launch the game normally. Keep the bridge open or minimized.
 
-This bridge deliberately does not accept the old generic-mode APK or another gamepad. If no phone appears, confirm the new APK says **PC BRIDGE**, refresh the pairing after mode changes, and verify Connected on the phone. The Android Host test is only for generic mode.
+This bridge deliberately does not accept the old generic-mode APK or another gamepad. If no phone appears, confirm **Connect > Host mode** is **Windows bridge (experimental)**, refresh the pairing after mode changes, and verify the phone reports a connected host. This Compose app does not include the source project's Receiver Host test screen.
 
 ## What is mapped
 
-A/B/X/Y to Xbox A/B/X/Y; L1/R1 to shoulders; Select/Start to Back/Start; L3/R3 to stick clicks; the eight-way hat to Xbox D-pad; L2/R2 to the two trigger axes; both sticks to their matching Xbox axes. Android Y increases down, XInput Y increases up; the bridge inverts Y exactly once. No guessed DirectInput button order, calibration wizard or extra dead zone is applied. The existing phone dead zone still applies. Touch triggers remain full-press/release.
+A/B/X/Y to Xbox A/B/X/Y; L1/R1 to shoulders; Select/Start to Back/Start; L3/R3 to stick clicks; the eight-way hat to Xbox D-pad; L2/R2 to the two trigger axes; both sticks to their matching Xbox axes. Android Y increases down, XInput Y increases up; the bridge inverts Y exactly once. No guessed DirectInput button order, calibration wizard or extra dead zone is applied. The existing phone dead zone still applies. This Compose app supplies analog trigger pressure from 0–255; the bridge preserves those bytes.
 
 PC mode exposes a vendor-defined HID collection rather than a physical gamepad collection. Games should see only the virtual Xbox controller, avoiding the physical-plus-virtual double-input path without a system-wide HID-hiding filter. This design and particular Bluetooth stacks still need the hardware gate below.
 
@@ -38,13 +36,13 @@ PC mode exposes a vendor-defined HID collection rather than a physical gamepad c
 
 ## Validation boundaries
 
-CI runs exact protocol and axis/button checks, randomized reports, timeout/re-arm checks, Android JUnit/core tests, Android lint/build, Windows compilation/publish, native-client loading without a bus, embedded-driver integrity checking, and a Windows window-open/clean-close smoke test. Check the actual workflow result before calling those passed. **CI never installs the kernel driver or claims physical Bluetooth/XInput/gameplay/latency validation.**
+Available checks include protocol/axis/button and randomized-report tests (`Bridge.Tests`), worker isolation with fake output (`Worker.Tests`), compilation/publish and package probes (`Build.ps1`), and a window-open/clean-close script (`Smoke-Test.ps1`). They are scripts and tests, not recorded passes. There is no GitHub Actions workflow in this checkout. See [validation evidence](../docs/VALIDATION.md). **These checks do not install the kernel driver or establish physical Bluetooth/XInput/gameplay/latency validation.**
 
 Hardware gate on a Windows 11 PC + S22 Ultra:
 - Install fresh via the in-app button; test UAC cancellation and requested reboot handling without security workarounds.
 - Switch Android to PC bridge mode, re-pair these devices, detect exactly one phone, and start one Xbox output.
 - In `joy.cpl`, see the virtual Xbox controller, not a second physical gamepad. Check both sticks in four cardinal directions and every button. Xbox up/right is positive.
-- In Deep Rock Galactic: Survivor without Steam Input/x360ce, A must confirm and movement must match. Do not call the reported gameplay issue fixed until this passes.
+- In Deep Rock Galactic: Survivor without Steam Input/x360ce, A must confirm and movement must match. Record the game/version and result; do not claim gameplay acceptance until this passes.
 - Hold a button/stick and disconnect Bluetooth, close the app, lock the phone, and suspend/resume the PC. Controls must release and held input must not resume before a neutral packet.
 - Run minimized for five minutes, reconnect, and test another real controller present. XInput player slot 1 is not forcibly reassigned; games limited to the first slot may need other controllers disconnected before starting the bridge.
 - Measure end-to-end latency on hardware. Neither the 8 ms analog interval nor report count is a latency result.
@@ -57,7 +55,7 @@ Windows, .NET 10 SDK, network access for official build dependencies:
 ./windows/Build.ps1
 ```
 
-The resulting `windows/dist` folder has a self-contained x64 executable, runtime/backend and bundled driver, notices and provenance. It does not require users to install .NET. The package is x64 only for now. ARM64 Windows, controller rumble, multiple simultaneous phone outputs, startup/tray integration, and production app code signing are not implemented.
+A successful build is intended to produce a `windows/dist` folder with a self-contained x64 executable, runtime/backend and bundled driver, notices and provenance. It does not require users to install .NET. The package is x64 only for now. ARM64 Windows, controller rumble, multiple simultaneous phone outputs, startup/tray integration, and production app code signing are not implemented.
 
 Core-only tests (no driver/Windows needed): `dotnet run --project windows/Bridge.Tests -c Release`.
 
